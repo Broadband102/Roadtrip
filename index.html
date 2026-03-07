@@ -567,9 +567,17 @@
               </div>
             </div>
             <input type="text" id="r-departDate" placeholder="Departure date (e.g. June 15)" />
-            <label class="chip" id="r-roundtripChip" style="width:fit-content">
-              <input type="checkbox" id="r-roundtrip"> 🔄 Round Trip (return to origin)
-            </label>
+            <div class="row">
+              <div class="input-group">
+                <label class="input-label">NIGHTS AT DESTINATION</label>
+                <input type="number" id="r-nightsDest" value="0" min="0" max="20" placeholder="0" />
+              </div>
+              <div class="input-group" style="justify-content:flex-end;padding-top:20px">
+                <label class="chip" id="r-roundtripChip" style="width:fit-content">
+                  <input type="checkbox" id="r-roundtrip"> 🔄 Round Trip
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -673,9 +681,17 @@
           </div>
         </div>
 
-        <label class="chip" id="s-roundtripChip" style="width:fit-content">
-          <input type="checkbox" id="s-roundtrip"> 🔄 Round Trip (drive back home)
-        </label>
+        <div class="row" style="align-items:center">
+          <div class="input-group">
+            <label class="input-label">NIGHTS AT DESTINATION</label>
+            <input type="number" id="s-nightsDest" value="2" min="0" max="20" placeholder="2" />
+          </div>
+          <div class="input-group" style="justify-content:flex-end;padding-top:20px">
+            <label class="chip" id="s-roundtripChip" style="width:fit-content">
+              <input type="checkbox" id="s-roundtrip"> 🔄 Round Trip
+            </label>
+          </div>
+        </div>
 
         <div class="input-group">
           <div class="section-label">Anything Else?</div>
@@ -902,6 +918,7 @@ async function generateRoute() {
   const notes       = document.getElementById('r-notes').value.trim();
   const interests   = [...document.querySelectorAll('#r-interests input:checked')].map(c => c.value);
   const roundTrip   = document.getElementById('r-roundtrip').checked;
+  const nightsDest  = Number(document.getElementById('r-nightsDest').value || 0);
   const geminiKey   = getKey('gemini');
   const mapsKey     = getKey('maps');
 
@@ -922,7 +939,7 @@ async function generateRoute() {
   showThinking('r', 'Analyzing the drive, calculating stop timing, picking locations that match your interests...');
 
   try {
-    const prompt = buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip });
+    const prompt = buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip, nightsDest });
     const itinerary = await callGemini(geminiKey, prompt);
     hideThinking('r');
     currentStops = itinerary.stops;
@@ -940,27 +957,53 @@ async function generateRoute() {
   setBusy('r-generateBtn', false);
 }
 
-function buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip }) {
-  const rtNote = roundTrip
-    ? `- This is a ROUND TRIP. The last stop must return to the origin: "${origin}". Budget drive time for the return journey within the ${driveHours} hrs/day limit. The "destination" stop should be the same place as the origin.`
-    : `- This is a ONE-WAY trip ending at ${destination}.`;
-  return `You are an expert road trip planner. Respond ONLY with valid JSON — no markdown, no explanation.
+function buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip, nightsDest }) {
+  // Timing constants
+  const DEPART_TIME = '08:00';
+  const BUFFER_HRS  = 1.4;   // roadwork / delay buffer per day
+  const effectiveDriveHrs = driveHours - BUFFER_HRS; // net drive time available
+  const travelDays  = roundTrip ? tripDays - nightsDest : tripDays - nightsDest;
+  const outboundDays = roundTrip ? Math.floor(travelDays / 2) : travelDays;
+  const returnDays   = roundTrip ? Math.ceil(travelDays / 2) : 0;
 
-Plan a road trip:
+  const rtNote = roundTrip
+    ? `- ROUND TRIP: reach ${destination}, stay ${nightsDest} night(s), then drive back to ${origin}.
+- Outbound: ~${outboundDays} driving day(s) to reach ${destination}
+- Return: ~${returnDays} driving day(s) back to ${origin}
+- Final stop must be ${origin} — same address as origin`
+    : `- ONE-WAY trip. Arrive at ${destination} with ${nightsDest > 0 ? nightsDest + ' night(s) to enjoy it' : 'no overnight stay needed'}.`;
+
+  const timingNote = `
+TIMING RULES (apply to every driving day):
+- Departure time each driving day: ${DEPART_TIME} local time
+- Buffer ${BUFFER_HRS} hrs per day for traffic, roadwork, fuel, food stops
+- Net available drive time per day: ${effectiveDriveHrs.toFixed(1)} hours (out of ${driveHours} max)
+- Use arrival time in each stop's description: e.g. "Depart 08:00, arrive ~14:20 after a fuel stop in Meridian"
+- Brief stops (fuel, food, stretch): 20-45 min — include in buffer, do NOT count as a full stop
+- Overnight stops: end of driving day — note "Overnight here" in description
+- Destination nights: ${nightsDest} night(s) at ${destination} before turning back (if round trip)`;
+
+  return `You are an expert road trip planner and timing specialist. Respond ONLY with valid JSON — no markdown, no explanation.
+
+Plan a road trip with PRECISE daily timing:
 - Origin: ${origin}
-- ${roundTrip ? 'Turnaround destination' : 'Destination'}: ${destination}
-- Max driving hours per day: ${driveHours}
+- ${roundTrip ? 'Turnaround point' : 'Destination'}: ${destination}
+- Departure date: ${departDate || 'flexible'}
+- Max drive hrs/day (including buffer): ${driveHours}
 - Total trip days: ${tripDays}
-- Departure: ${departDate || 'flexible'}
+- Nights at destination: ${nightsDest}
+- Round trip: ${roundTrip}
 - Interests: ${interests.length ? interests.join(', ') : 'general sightseeing'}
 - Notes: ${notes || 'none'}
 ${rtNote}
+${timingNote}
 
 Return ONLY this JSON:
 {
   "summary": "One sentence overview",
   "totalMiles": 1234,
   "totalDriveHours": 18,
+  "daysBreakdown": "e.g. 2 days out / 3 nights there / 2 days back",
   "stops": [
     {
       "day": 1,
@@ -968,27 +1011,28 @@ Return ONLY this JSON:
       "type": "origin",
       "name": "Place name",
       "location": "City, State",
-      "address": "Specific address for geocoding",
-      "description": "Why stop here, what to do (1-2 sentences)",
-      "duration": "2 hours",
+      "address": "Specific address for Google Maps",
+      "description": "Depart 08:00. Brief description of this stop and what to do.",
+      "stopType": "overnight",
+      "departTime": "08:00",
+      "arrivalTime": "14:30",
+      "duration": "overnight",
       "driveFromPrev": "0 min",
       "distFromPrev": "0 miles",
-      "highlight": "Top thing to do"
+      "highlight": "Top thing to do here"
     }
   ]
 }
 
-Rules:
-- type: "origin" for first stop, "destination" for LAST stop, "waypoint" for all others
-- ${roundTrip ? 'Last stop name/location must match the origin — it is the return home' : 'Last stop is the final destination'}
-- YOU MUST ACTUALLY REACH ${roundTrip ? destination + ' before turning back' : destination} — do not stop short
-- Spread the drive realistically: if total one-way distance requires multiple long days, use them
-- Each driving day can use the FULL ${driveHours} hours of driving — do not be conservative
-- Stops along the way are brief (1-3 hours) unless it is an overnight stop
-- Overnight stops happen at the end of each driving day — label them clearly in description
-- Include ${Math.max(2, Math.floor(tripDays * 1.5))} to ${Math.floor(tripDays * 2.5)} stops total (fewer is fine if the drive demands it)
-- Addresses must be specific enough for Google Maps geocoding
-- driveFromPrev for first stop = "0 min"`;
+stopType options: "origin", "brief" (fuel/stretch <1hr), "activity" (1-3hrs), "overnight", "destination", "destination-overnight"
+
+CRITICAL RULES:
+- YOU MUST REACH ${destination} — do not stop short under any circumstances
+- Use full ${effectiveDriveHrs.toFixed(1)} net hours each driving day
+- ${roundTrip ? 'Return leg must get back to ' + origin : 'End at ' + destination}
+- Include ${Math.max(3, outboundDays + returnDays + nightsDest)} to ${Math.max(5, (outboundDays + returnDays) * 3 + nightsDest)} stops total
+- Overnight stops should be in interesting towns, not random highway exits
+- All addresses must geocode correctly in Google Maps`;
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -1002,6 +1046,7 @@ async function generateSurprise() {
   const interests  = [...document.querySelectorAll('#s-interests input:checked')].map(c => c.value);
   const notes      = document.getElementById('s-notes').value.trim();
   const roundTrip  = document.getElementById('s-roundtrip').checked;
+  const nightsDest = Number(document.getElementById('s-nightsDest').value || 0);
   const geminiKey  = getKey('gemini');
   const mapsKey    = getKey('maps');
 
@@ -1011,7 +1056,7 @@ async function generateSurprise() {
   if (!mapsLoaded) { loadGoogleMaps(mapsKey); return setStatus('Loading maps...', 'loading'); }
 
   // Save params for regenerate
-  lastSurpriseParams = { homebase, days, driveHours, direction, interests, notes, roundTrip };
+  lastSurpriseParams = { homebase, days, driveHours, direction, interests, notes, roundTrip, nightsDest };
 
   setBusy('s-generateBtn', true);
   document.getElementById('s-ideasContainer').style.display = 'none';
@@ -1023,7 +1068,7 @@ async function generateSurprise() {
   showThinking('s', 'Thinking about where to send you based on your interests, drive limits, and direction...');
 
   try {
-    const prompt = buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip });
+    const prompt = buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip, nightsDest });
     const result = await callGemini(geminiKey, prompt);
     hideThinking('s');
     renderIdeaCards(result.ideas);
@@ -1039,17 +1084,25 @@ async function generateSurprise() {
 }
 
 function buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip }) {
+  const BUFFER_HRS = 1.4;
+  const effectiveDriveHrs = (driveHours - BUFFER_HRS).toFixed(1);
+  const travelDays = days - nightsDest;
+  const outDays = roundTrip ? Math.floor(travelDays / 2) : travelDays;
   const rtNote = roundTrip
-    ? `- ROUND TRIP: the traveler must return to ${homebase} by end of day ${days}. Budget half the trip days for going out, half for coming back.`
-    : `- ONE-WAY trip, no need to return to start.`;
+    ? `- ROUND TRIP: ~${outDays} days out, ${nightsDest} night(s) at destination, ~${Math.ceil(travelDays/2)} days back to ${homebase}.`
+    : `- ONE-WAY: ${travelDays} driving days, ${nightsDest} night(s) at destination.`;
+  const maxMiles = outDays * effectiveDriveHrs * 60; // rough miles assuming 60mph avg
+
   return `You are an expert road trip planner and travel advisor. Respond ONLY with valid JSON — no markdown, no explanation.
 
-A traveler wants a surprise road trip. Generate 3 distinct trip concepts for them.
+A traveler wants a surprise road trip. Generate 3 distinct trip concepts.
 
 Details:
 - Starting from: ${homebase}
-- Trip length: ${days} days
-- Max driving per day: ${driveHours} hours
+- Total trip days: ${days} (includes ${nightsDest} night(s) at destination)
+- Net drive time per day: ${effectiveDriveHrs} hrs (after 1.4hr buffer for delays/fuel)
+- Outbound driving days available: ${outDays}
+- Max one-way distance: ~${Math.round(maxMiles)} miles from ${homebase}
 - Preferred direction: ${direction === 'any' ? 'open to anything' : direction}
 - Loves: ${interests.length ? interests.join(', ') : 'general travel'}
 - Extra notes: ${notes || 'none'}
@@ -1133,28 +1186,45 @@ async function buildSelectedTrip() {
 }
 
 function buildSurpriseItineraryPrompt(params, idea) {
+  const BUFFER_HRS  = 1.4;
+  const effectiveDriveHrs = (params.driveHours - BUFFER_HRS).toFixed(1);
+  const travelDays  = params.days - params.nightsDest;
+  const outDays     = params.roundTrip ? Math.floor(travelDays / 2) : travelDays;
+  const returnDays  = params.roundTrip ? Math.ceil(travelDays / 2) : 0;
   const rtNote = params.roundTrip
-    ? `- ROUND TRIP: the last stop must return to ${params.homebase}. Plan outbound stops for roughly the first half of the trip and return stops for the second half, using different roads/towns where possible for variety.`
-    : `- ONE-WAY trip ending at ${idea.destination}.`;
-  return `You are an expert road trip planner. Respond ONLY with valid JSON — no markdown, no explanation.
+    ? `- ROUND TRIP: ${outDays} outbound driving days to reach ${idea.destination}, ${params.nightsDest} night(s) there, ${returnDays} return driving days back to ${params.homebase}. Take different roads back where possible.
+- Final stop = ${params.homebase}`
+    : `- ONE-WAY: ${outDays} driving days to ${idea.destination}, ${params.nightsDest} night(s) at destination.`;
 
-Build a full day-by-day itinerary for this road trip:
+  return `You are an expert road trip planner and timing specialist. Respond ONLY with valid JSON — no markdown, no explanation.
 
-Trip concept: "${idea.title}"
+Build a precise day-by-day itinerary:
+
+Trip: "${idea.title}"
 - Starts: ${params.homebase}
-- ${params.roundTrip ? 'Furthest point' : 'Destination'}: ${idea.destination}
-- Route: ${idea.route_hint}
-- Duration: ${params.days} days
-- Max drive per day: ${params.driveHours} hours
+- ${params.roundTrip ? 'Turnaround' : 'Destination'}: ${idea.destination}
+- Route hint: ${idea.route_hint}
+- Total days: ${params.days} (${params.nightsDest} night(s) at destination)
+- Net drive hrs/day: ${effectiveDriveHrs} (after 1.4hr buffer for delays/roadwork/fuel)
+- All driving days depart at 08:00
 - Interests: ${params.interests.length ? params.interests.join(', ') : 'general travel'}
 - Notes: ${params.notes || 'none'}
 ${rtNote}
+
+TIMING RULES:
+- Depart every driving morning at 08:00
+- Buffer 1.4 hrs per day for traffic/roadwork/fuel — already subtracted from net drive time
+- Brief stops (fuel, food): 20-45 min — absorbed into buffer, not listed as separate stops
+- Use arrival estimates in descriptions: e.g. "Depart 08:00, arrive ~2:30pm"
+- Overnight stops: end of day — note hotel/campground type in description
+- Destination stays: ${params.nightsDest} full night(s) relaxing at ${idea.destination}
 
 Return ONLY this JSON:
 {
   "summary": "One sentence overview",
   "totalMiles": 1234,
   "totalDriveHours": 18,
+  "daysBreakdown": "e.g. 2 days out / 2 nights at Destin / 2 days back",
   "stops": [
     {
       "day": 1,
@@ -1162,9 +1232,12 @@ Return ONLY this JSON:
       "type": "origin",
       "name": "Place name",
       "location": "City, State",
-      "address": "Specific address for Google Maps geocoding",
-      "description": "Why stop here, what to do (1-2 sentences)",
-      "duration": "2 hours",
+      "address": "Specific address for Google Maps",
+      "description": "Depart 08:00. What to do here. Arrive ~HH:MM if driving.",
+      "stopType": "overnight",
+      "departTime": "08:00",
+      "arrivalTime": "15:30",
+      "duration": "overnight",
       "driveFromPrev": "0 min",
       "distFromPrev": "0 miles",
       "highlight": "Top thing to do"
@@ -1172,16 +1245,16 @@ Return ONLY this JSON:
   ]
 }
 
-Rules:
-- type: "origin" first, "destination" last, "waypoint" for others
-- ${params.roundTrip ? 'Last stop must be back at ' + params.homebase + ' — same name/address as origin' : 'Last stop is ' + idea.destination}
-- YOU MUST ACTUALLY REACH ${params.roundTrip ? idea.destination + ' before turning back' : idea.destination} — do not stop short of the destination
-- Use the FULL ${params.driveHours} hrs of driving each day — do not be conservative with mileage
-- Brief stops (1-3 hrs) are fine during driving days; overnight stops end each day
-- Include ${Math.max(3, Math.floor(params.days * 1.5))} to ${Math.floor(params.days * 2.5)} stops total
-- Daily driving must not exceed ${params.driveHours} hours
-- First stop driveFromPrev = "0 min"
-- Addresses must work in Google Maps geocoding`;
+stopType: "origin" | "brief" | "activity" | "overnight" | "destination" | "destination-overnight"
+
+CRITICAL RULES:
+- YOU MUST REACH ${idea.destination} — do not stop short
+- ${params.roundTrip ? 'Return leg must end at ' + params.homebase : 'End at ' + idea.destination}
+- Use full ${effectiveDriveHrs} net hrs each driving day
+- Overnight stops in interesting towns, not random highway exits
+- Include ${Math.max(3, outDays + returnDays + params.nightsDest)} to ${Math.max(6, (outDays + returnDays) * 3 + params.nightsDest)} stops
+- All addresses must geocode in Google Maps
+- driveFromPrev for first stop = "0 min"`;
 }
 
 async function regenerateSurprise() {
@@ -1327,22 +1400,67 @@ function robustParseJSON(raw) {
 function renderStops(listId, stops) {
   const list = document.getElementById(listId);
   list.innerHTML = '';
+
+  // Group by day for day headers
+  let lastDay = 0;
+
   stops.forEach((stop, i) => {
+    // Insert day header
+    if (stop.day !== lastDay) {
+      lastDay = stop.day;
+      const dayHeader = document.createElement('div');
+      dayHeader.style.cssText = 'font-family:"Bebas Neue",sans-serif;font-size:13px;letter-spacing:3px;color:var(--muted);padding:6px 0 2px;border-top:1px solid var(--border);margin-top:4px';
+      dayHeader.textContent = 'DAY ' + stop.day;
+      if (i === 0) dayHeader.style.borderTop = 'none';
+      list.appendChild(dayHeader);
+    }
+
+    const stopTypeColor = {
+      'origin': 'var(--success)',
+      'destination': 'var(--danger)',
+      'destination-overnight': 'var(--danger)',
+      'overnight': '#60a5fa',
+      'activity': 'var(--accent)',
+      'brief': 'var(--muted)',
+      'waypoint': 'var(--accent)',
+    }[stop.stopType || stop.type] || 'var(--accent)';
+
+    const stopTypeLabel = {
+      'origin': '🏠 START',
+      'destination': '🎯 DESTINATION',
+      'destination-overnight': '🎯 DESTINATION',
+      'overnight': '🌙 OVERNIGHT',
+      'activity': '⭐ ACTIVITY',
+      'brief': '⛽ BRIEF STOP',
+      'waypoint': '📍 STOP',
+    }[stop.stopType || stop.type] || '📍 STOP';
+
     const card = document.createElement('div');
-    card.className = 'stop-card ' + stop.type;
+    card.className = 'stop-card ' + (stop.type || 'waypoint');
+    card.style.borderLeftColor = stopTypeColor;
+
+    const timingHtml = (stop.departTime || stop.arrivalTime) ? `
+      <div style="display:flex;gap:12px;margin-top:5px;font-family:'DM Mono',monospace;font-size:10px;">
+        ${stop.departTime && stop.departTime !== '—' ? `<span style="color:#60a5fa">🕗 DEPART ${stop.departTime}</span>` : ''}
+        ${stop.arrivalTime && stop.arrivalTime !== '—' ? `<span style="color:var(--success)">📍 ARRIVE ${stop.arrivalTime}</span>` : ''}
+      </div>` : '';
+
     card.innerHTML = `
       <div class="stop-header">
         <div class="stop-num">${String(i+1).padStart(2,'0')}</div>
-        <div>
-          <div class="stop-type">${stop.type.toUpperCase()} · DAY ${stop.day}</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="stop-type" style="color:${stopTypeColor}">${stopTypeLabel}</div>
+          </div>
           <div class="stop-name">${stop.name}</div>
         </div>
       </div>
       <div class="stop-meta">${stop.location}</div>
       ${stop.driveFromPrev && stop.driveFromPrev !== '0 min' ? `<div class="stop-drive">🚗 ${stop.driveFromPrev} · ${stop.distFromPrev}</div>` : ''}
-      <div class="stop-meta" style="margin-top:6px">${stop.description}</div>
+      ${timingHtml}
+      <div class="stop-meta" style="margin-top:5px">${stop.description}</div>
       ${stop.highlight ? `<div class="stop-highlight">★ ${stop.highlight}</div>` : ''}
-      ${stop.duration ? `<div class="stop-duration">⏱ ${stop.duration}</div>` : ''}
+      ${stop.duration && stop.duration !== '0 min' ? `<div class="stop-duration">⏱ ${stop.duration}</div>` : ''}
     `;
     list.appendChild(card);
   });
@@ -1414,6 +1532,10 @@ function renderSummary(itinerary, days) {
   document.getElementById('sumDays').textContent   = days;
   document.getElementById('sumDrive').textContent  = (itinerary.totalDriveHours || '—') + 'h';
   document.getElementById('tripSummary').classList.add('visible');
+  // Show breakdown if available
+  if (itinerary.daysBreakdown) {
+    setStatus('✦ ' + itinerary.daysBreakdown, 'success');
+  }
 }
 
 // ── RESET ─────────────────────────────────────────────────────────
@@ -1501,6 +1623,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.3.0</div>
+  <div class="version-stamp">WAYPOINT v0.4.0</div>
 </body>
 </html>
