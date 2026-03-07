@@ -1159,7 +1159,7 @@ STRUCTURE: ${outDays}d driving out${params.nightsDest>0?' / '+params.nightsDest+
 RULES: Depart 08:00 each driving day. Net ${effectiveDriveHrs}h drive/day (1.4h buffer for delays). MUST reach ${idea.destination}. ${params.roundTrip?'Final stop = '+params.homebase+'.':(params.nightsDest>0?params.nightsDest+' rest nights at dest.':'')} Overnights in real interesting towns. Include ${minStops}-${minStops*2+2} stops total.
 
 JSON: {"summary":"","totalMiles":0,"totalDriveHours":0,"daysBreakdown":"",
-"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"Depart 08:00...","stopType":"origin","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
+"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"What to do/see here and why.","stopType":"origin","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
 
 stopType: origin|overnight|destination|destination-overnight|activity|brief
 type: origin(first)|destination(last)|waypoint(rest)`;
@@ -1188,13 +1188,13 @@ async function callGeminiRoundTrip(apiKey, origin, destination, params) {
   const outPrompt = `Road trip planner. JSON only, no markdown.
 OUTBOUND LEG. FROM: ${origin} TO: ${destination}. DAYS: ${outDays}. NET DRIVE/DAY: ${eff}h. DEPART 08:00 daily. INTERESTS: ${interests.join(',')||'general'}. NOTES: ${notes||'none'}.
 MUST reach ${destination}. Use full ${eff}h/day. Overnights in real towns. Include ${outDays+1} to ${outDays*2+2} stops.
-JSON: {"totalMiles":0,"totalDriveHours":0,"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"Depart 08:00...","stopType":"origin","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
+JSON: {"totalMiles":0,"totalDriveHours":0,"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"What to do/see here and why.","stopType":"origin","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
 stopType: origin|overnight|destination|activity|brief. Last stop type=destination at ${destination}.`;
 
   const retPrompt = `Road trip planner. JSON only, no markdown.
 RETURN LEG. FROM: ${destination} BACK TO: ${origin}. DAYS: ${retDays}. NET DRIVE/DAY: ${eff}h. DEPART 08:00 daily. INTERESTS: ${interests.join(',')||'general'}.
 MUST return to ${origin}. Use different roads than outbound. Include ${retDays+1} to ${retDays*2+2} stops.
-JSON: {"totalMiles":0,"totalDriveHours":0,"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"Depart 08:00...","stopType":"overnight","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
+JSON: {"totalMiles":0,"totalDriveHours":0,"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"What to do/see here and why.","stopType":"overnight","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
 stopType: overnight|activity|brief|destination. Last stop type=destination at ${origin}.`;
 
   setStatus('Planning outbound leg to ' + destination + '...', 'loading');
@@ -1261,12 +1261,12 @@ async function callGemini(apiKey, prompt) {
   let data, lastErr;
   for (const model of models) {
     setStatus('Using model: ' + model + '...', 'loading');
-    const r = await fetch('https://generativelanguage.googleapis.com/v1/models/' + model + ':generateContent?key=' + apiKey, {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.8, maxOutputTokens: 16000 }
+        generationConfig: { temperature: 0.8, maxOutputTokens: 16000, thinkingConfig: { thinkingBudget: 0 } }
       })
     });
     if (r.ok) { data = await r.json(); break; }
@@ -1371,68 +1371,58 @@ function robustParseJSON(raw) {
 // ── RENDER STOPS ──────────────────────────────────────────────────
 
 // ── TIMING RECALCULATOR ───────────────────────────────────────────
-// Overwrites Gemini's often-wrong times with accurate client-side math
+// Calculates accurate departure/arrival times from distFromPrev miles
 function recalculateTiming(stops) {
-  const AVG_MPH     = 55;    // average road speed incl. slowing for towns
-  const DEPART_MINS = 8*60;  // 08:00 departure = 480 mins from midnight
+  const AVG_MPH     = 55;   // realistic avg incl. towns, signals, slowing
+  const START_MINS  = 8*60; // 08:00 each driving day
 
-  // Duration in minutes for each stopType (time SPENT at stop before departing)
-  const STOP_DURATION = {
-    'origin':                0,
-    'brief':                30,
-    'activity':            120,
-    'overnight':             0,   // depart next day at 08:00
-    'destination':           0,
-    'destination-overnight': 0,
+  // Time spent at each stop type before moving on (minutes)
+  const DWELL = {
+    'origin': 0, 'brief': 30, 'activity': 90,
+    'overnight': 0, 'destination': 0, 'destination-overnight': 0,
   };
 
-  let currentDay  = -1;
-  let clockMins   = DEPART_MINS;  // running clock in minutes from midnight
+  let clockMins = START_MINS;
+  let lastDay   = -1;
 
   stops.forEach((stop, i) => {
-    // New day → reset clock to 08:00
-    if (stop.day !== currentDay) {
-      currentDay = stop.day;
-      clockMins  = DEPART_MINS;
+    const isFirstStop = i === 0;
+
+    // Reset clock at start of each new day
+    if (stop.day !== lastDay) {
+      lastDay   = stop.day;
+      clockMins = START_MINS;
     }
 
-    // Parse miles from distFromPrev ("123 miles" or "0 miles")
-    const milesMatch = (stop.distFromPrev || '').match(/(\d+(?:\.\d+)?)/);
-    const miles = milesMatch ? parseFloat(milesMatch[1]) : 0;
-    const driveMinutes = miles > 0 ? Math.round((miles / AVG_MPH) * 60) : 0;
+    // Parse miles driven to reach this stop
+    const m = (stop.distFromPrev || '').match(/(\d+(?:\.\d+)?)/);
+    const miles = m ? parseFloat(m[1]) : 0;
+    const driveMin = miles > 0 ? Math.round((miles / AVG_MPH) * 60) : 0;
 
-    // Arrival = clock + drive time
-    const arrivalMins = clockMins + driveMinutes;
-    stop.arrivalTime  = miles > 0 ? minsToTime(arrivalMins) : (i === 0 ? '' : minsToTime(clockMins));
-
-    // Depart = arrival + time spent at stop
-    const spentMins = STOP_DURATION[stop.stopType] ?? 60;
-    const departMins = arrivalMins + spentMins;
-    stop.departTime = minsToTime(clockMins === DEPART_MINS && miles === 0 ? DEPART_MINS : departMins);
-
-    // Advance clock (unless overnight — next stop starts fresh at 08:00)
-    if (stop.stopType === 'overnight' || stop.stopType === 'destination-overnight' || stop.stopType === 'destination') {
-      // Clock resets on next day iteration
-      clockMins = departMins;
+    if (isFirstStop || miles === 0) {
+      // Origin or destination-rest day: no driving
+      stop.departTime  = '08:00';
+      stop.arrivalTime = isFirstStop ? '' : '—';
+      stop.driveFromPrev = isFirstStop ? '0 min' : stop.driveFromPrev;
     } else {
-      clockMins = departMins;
-    }
+      // Arrived after driving driveMin from last clock position
+      const arrivalMins = clockMins + driveMin;
+      stop.arrivalTime  = minsToTime(arrivalMins);
 
-    // Update driveFromPrev with accurate time
-    if (driveMinutes > 0) {
-      const hrs  = Math.floor(driveMinutes / 60);
-      const mins = driveMinutes % 60;
-      stop.driveFromPrev = hrs > 0
-        ? hrs + 'h ' + (mins > 0 ? mins + 'm' : '')
-        : mins + ' min';
+      // Depart after dwelling at this stop
+      const dwell = DWELL[stop.stopType] ?? 60;
+      const departMins = arrivalMins + dwell;
+      stop.departTime = minsToTime(departMins);
+      clockMins = departMins;
+
+      // Pretty-print drive time
+      const dh = Math.floor(driveMin / 60);
+      const dm = driveMin % 60;
+      stop.driveFromPrev = dh > 0
+        ? dh + 'h ' + (dm > 0 ? dm + 'm' : '').trim()
+        : dm + ' min';
     }
   });
-
-  // First stop: no arrival time, depart 08:00
-  if (stops.length > 0) {
-    stops[0].arrivalTime = '';
-    stops[0].departTime  = '08:00';
-  }
 
   return stops;
 }
@@ -1669,6 +1659,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.8.0</div>
+  <div class="version-stamp">WAYPOINT v0.8.1</div>
 </body>
 </html>
