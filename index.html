@@ -737,13 +737,28 @@ Rules:
 - Make addresses specific enough for Google Maps geocoding
 - driveFromPrev for first stop is always "0 min"`;
 
-  // Try models in order — 1.5-flash has the most generous free tier
-  const models = ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-2.0-flash-lite'];
+  // Dynamically discover available models, then try in preferred order
+  let availableModels = [];
+  try {
+    const listResp = await fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + apiKey);
+    if (listResp.ok) {
+      const listData = await listResp.json();
+      availableModels = (listData.models || [])
+        .filter(m => m.supportedGenerationMethods?.includes('generateContent'))
+        .map(m => m.name.replace('models/', ''));
+    }
+  } catch(e) { /* fallback to hardcoded list */ }
+
+  // Preferred order — newest/best first
+  const preferred = ['gemini-2.5-flash', 'gemini-2.5-flash-preview-04-17', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  const models = preferred.filter(m => availableModels.length === 0 || availableModels.includes(m));
+  if (models.length === 0) models.push(...preferred); // fallback if list fetch failed
+
   let data, lastErr;
 
   for (const model of models) {
     setStatus('Trying model: ' + model + '...', 'loading');
-    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey, {
+    const r = await fetch('https://generativelanguage.googleapis.com/v1/models/' + model + ':generateContent?key=' + apiKey, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
