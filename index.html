@@ -504,9 +504,66 @@
 
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-</style>
+
+    /* ── LOGIN GATE ── */
+    #loginGate {
+      position: fixed; inset: 0; background: #0a0a08;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; flex-direction: column; gap: 24px;
+    }
+    #loginGate.hidden { display: none; }
+    .login-box {
+      background: #111110; border: 1px solid #2a2a28;
+      border-radius: 16px; padding: 40px 48px; text-align: center;
+      max-width: 360px; width: 90%;
+    }
+    .login-logo {
+      font-family: 'Bebas Neue', sans-serif; font-size: 42px;
+      color: #e8d56a; letter-spacing: 4px; margin-bottom: 4px;
+    }
+    .login-sub {
+      font-size: 10px; letter-spacing: 3px; color: #666;
+      text-transform: uppercase; margin-bottom: 32px;
+    }
+    .login-field {
+      width: 100%; padding: 12px 16px; margin-bottom: 12px;
+      background: #0a0a08; border: 1px solid #2a2a28;
+      border-radius: 8px; color: #e8e8e0;
+      font-family: 'DM Mono', monospace; font-size: 13px;
+      outline: none; box-sizing: border-box;
+    }
+    .login-field:focus { border-color: #e8d56a; }
+    .login-btn {
+      width: 100%; padding: 13px; margin-top: 8px;
+      background: #e8d56a; color: #0a0a08; border: none;
+      border-radius: 8px; font-family: 'Bebas Neue', sans-serif;
+      font-size: 16px; letter-spacing: 3px; cursor: pointer;
+      transition: opacity .2s;
+    }
+    .login-btn:hover { opacity: .85; }
+    .login-error {
+      color: #f87171; font-size: 11px; margin-top: 8px;
+      min-height: 16px; letter-spacing: 1px;
+    }
+
+    </style>
 </head>
 <body>
+
+  <!-- ── LOGIN GATE ── -->
+  <div id="loginGate">
+    <div class="login-box">
+      <div class="login-logo">WAYPOINT</div>
+      <div class="login-sub">AI Road Trip Planner</div>
+      <input class="login-field" type="text" id="loginUser" placeholder="Username" autocomplete="username" />
+      <input class="login-field" type="password" id="loginPass" placeholder="Password" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') tryLogin()" />
+      <button class="login-btn" onclick="tryLogin()">SIGN IN</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+
 
 <header>
   <div class="logo">WAYPOINT <span>AI ROAD TRIP PLANNER</span></div>
@@ -522,25 +579,7 @@
   <div class="sidebar">
     <div class="sidebar-inner">
 
-      <!-- API KEYS (shared) -->
-      <div class="keys-panel">
-        <div class="section-label">API Keys</div>
-        <div class="key-row">
-          <div class="key-icon maps">🗺</div>
-          <div class="key-input-wrap">
-            <input type="password" id="mapsKey" placeholder="Google Maps API Key" />
-            <button class="key-toggle" onclick="toggleKey('mapsKey')">👁</button>
-          </div>
-        </div>
-        <div class="key-row">
-          <div class="key-icon gemini">✦</div>
-          <div class="key-input-wrap">
-            <input type="password" id="geminiKey" placeholder="Gemini API Key" />
-            <button class="key-toggle" onclick="toggleKey('geminiKey')">👁</button>
-          </div>
-        </div>
-        <button class="btn btn-secondary" style="margin-top:10px" onclick="saveKeys()">SAVE KEYS</button>
-      </div>
+      
 
       <!-- MODE SWITCHER -->
       <div class="mode-switcher">
@@ -889,13 +928,48 @@ function exportPDF() {
 }
 
 
+
+// ── LOGIN GATE ─────────────────────────────────────────────────────
+const VALID_USERS = {
+  'waypoint': 'roadtrip2024',
+  'broadband': 'waypointpro'
+};
+
+function tryLogin() {
+  const user = document.getElementById('loginUser').value.trim().toLowerCase();
+  const pass = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+
+  if (VALID_USERS[user] && VALID_USERS[user] === pass) {
+    sessionStorage.setItem('wp_auth', 'ok');
+    document.getElementById('loginGate').classList.add('hidden');
+    errEl.textContent = '';
+    // Init maps now that we're logged in
+    const mk = getKey('maps');
+    if (mk) loadGoogleMaps(mk);
+  } else {
+    errEl.textContent = 'Invalid username or password';
+    document.getElementById('loginPass').value = '';
+    document.getElementById('loginPass').focus();
+  }
+}
+
+function checkAuth() {
+  if (sessionStorage.getItem('wp_auth') === 'ok') {
+    document.getElementById('loginGate').classList.add('hidden');
+    return true;
+  }
+  return false;
+}
+
 // ── INIT ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  const mk = localStorage.getItem('wp_maps_key');
-  const gk = localStorage.getItem('wp_gemini_key');
-  if (mk) document.getElementById('mapsKey').value = mk;
-  if (gk) document.getElementById('geminiKey').value = gk;
-  if (mk) loadGoogleMaps(mk);
+  // Check if already authenticated this session
+  checkAuth();
+  // Maps loads after login (or immediately if already authed)
+  if (sessionStorage.getItem('wp_auth') === 'ok') {
+    loadGoogleMaps(getKey('maps'));
+  }
 
   // Route chips
   document.querySelectorAll('#r-interests .chip input').forEach(cb => {
@@ -917,14 +991,8 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── KEYS ──────────────────────────────────────────────────────────
-function saveKeys() {
-  const mk = document.getElementById('mapsKey').value.trim();
-  const gk = document.getElementById('geminiKey').value.trim();
-  if (mk) localStorage.setItem('wp_maps_key', mk);
-  if (gk) localStorage.setItem('wp_gemini_key', gk);
-  setStatus('Keys saved', 'success');
-  if (mk && !mapsLoaded) loadGoogleMaps(mk);
-}
+// Keys hardcoded
+
 
 function toggleKey(id) {
   const el = document.getElementById(id);
@@ -1063,7 +1131,7 @@ async function generateRoute() {
       itinerary = await callGemini(geminiKey, prompt);
     }
     hideThinking('r');
-    currentStops = recalculateTiming(normalizeStops(itinerary.stops, origin), driveHours);
+    currentStops = await recalculateTiming(normalizeStops(itinerary.stops, origin), driveHours);
     renderStops('r-stopsList', itinerary.stops);
     document.getElementById('r-stopsContainer').style.display = 'block';
     await renderMap(itinerary.stops);
@@ -1092,7 +1160,7 @@ FROM: ${origin} | TO: ${destination} | DAYS: ${tripDays} | DRIVE/DAY: ${driveHou
 
 STRUCTURE: ${outDays} driving days out${nightsDest>0?' / '+nightsDest+' nights at '+destination:''}${roundTrip?' / '+retDays+' driving days back to '+origin:''}
 
-RULES: MUST reach ${destination}. ${roundTrip?'Must return to '+origin+' as final stop.':''} Overnight stops in real towns. ${nightsDest>0?nightsDest+' full rest nights at '+destination+'.':''} Include ${minStops}-${maxStops} stops. CRITICAL: Total distFromPrev miles across ALL stops on the SAME day must not exceed ${Math.round(parseFloat(eff)*55)} miles (= ${eff}h x 55mph). Split long drives across multiple stops.
+RULES: MUST reach ${destination}. ${roundTrip?'Must return to '+origin+' as final stop.':''} Overnight stops in real towns. ${nightsDest>0?nightsDest+' full rest nights at '+destination+'.':''} Include ${minStops}-${maxStops} stops. CRITICAL: Total distFromPrev miles across ALL stops on the SAME day must not exceed ${Math.round(parseFloat(eff)*50)} miles (= ${eff}h x 55mph). Split long drives across multiple stops.
 
 JSON schema:
 {"summary":"","totalMiles":0,"totalDriveHours":0,"daysBreakdown":"Xd out / Yn dest / Zd back",
@@ -1238,7 +1306,7 @@ async function buildSelectedTrip() {
       itinerary = await callGemini(geminiKey, prompt);
     }
     hideThinking('s');
-    currentStops = recalculateTiming(normalizeStops(itinerary.stops, p.homebase), p.driveHours);
+    currentStops = await recalculateTiming(normalizeStops(itinerary.stops, p.homebase), p.driveHours);
     renderStops('s-stopsList', itinerary.stops);
     document.getElementById('s-stopsContainer').style.display = 'block';
     await renderMap(itinerary.stops);
@@ -1518,32 +1586,64 @@ function normalizeStops(stops, originCity) {
 
 // ── TIMING RECALCULATOR ───────────────────────────────────────────
 // Calculates accurate departure/arrival times from distFromPrev miles
-function recalculateTiming(stops, maxDriveHours) {
-  const AVG_MPH      = 55;
-  const START_MINS   = 8 * 60;
-  const maxDriveMins = (maxDriveHours || 8) * 60;
+async function recalculateTiming(stops, maxDriveHours) {
+  const mapsKey    = getKey('maps');
+  const START_MINS = 8 * 60;  // 08:00
 
   const DWELL = {
     'origin': 0, 'brief': 30, 'activity': 90,
     'overnight': 0, 'destination': 0, 'destination-overnight': 0,
   };
+  const REST_TYPES = new Set(['overnight','destination','destination-overnight']);
 
-  // Pre-pass: total raw miles per day so we can scale if over budget
-  const dayMiles = {};
-  stops.forEach(s => {
-    const m = (s.distFromPrev || '').match(/([0-9]+(?:[.][0-9]+)?)/);
-    const miles = m ? parseFloat(m[1]) : 0;
-    dayMiles[s.day] = (dayMiles[s.day] || 0) + miles;
+  // ── Step 1: Geocode all stops to lat/lng if not already done ──────
+  // (stops should already have addresses from Gemini; Maps geocoder handles them)
+  // We'll use the Distance Matrix API sequentially: each stop → next stop
+  // to get real drive durations.
+
+  const addresses = stops.map(s => s.address || s.location || s.name);
+
+  // Build pairs: [i-1] → [i] for all i > 0
+  // Batch into groups of 10 (API limit per request)
+  const driveMins = new Array(stops.length).fill(0); // index 0 unused
+
+  for (let i = 1; i < stops.length; i++) {
+    const from = addresses[i - 1];
+    const to   = addresses[i];
+    const rawMiles = ((stops[i].distFromPrev || '').match(/([0-9]+(?:[.][0-9]+)?)/) || [])[1];
+
+    // Skip legs with no distance (rest days)
+    if (!rawMiles || parseFloat(rawMiles) === 0) {
+      driveMins[i] = 0;
+      continue;
+    }
+
+    setStatus('Calculating drive time to ' + (stops[i].name || to) + '...', 'loading');
+    try {
+      const mins = await getDistanceMatrixDuration(from, to, mapsKey);
+      driveMins[i] = mins;
+    } catch(e) {
+      // Fallback: estimate from miles at 50mph if API fails
+      driveMins[i] = Math.round((parseFloat(rawMiles) / 50) * 60);
+    }
+  }
+
+  // ── Step 2: Apply per-day capping ─────────────────────────────────
+  const maxDriveMinsDay = (maxDriveHours || 8) * 60;
+  const dayTotal = {};
+  stops.forEach((s, i) => {
+    if (i === 0) return;
+    if (!REST_TYPES.has(s.stopType) && driveMins[i] > 0) {
+      dayTotal[s.day] = (dayTotal[s.day] || 0) + driveMins[i];
+    }
   });
-
-  // Scale factor: compress days that exceed the drive budget
   const dayScale = {};
-  Object.keys(dayMiles).forEach(day => {
-    const totalMins = Math.round((dayMiles[day] / AVG_MPH) * 60);
-    dayScale[day] = totalMins > maxDriveMins && totalMins > 0
-      ? maxDriveMins / totalMins : 1.0;
+  Object.keys(dayTotal).forEach(day => {
+    dayScale[day] = dayTotal[day] > maxDriveMinsDay
+      ? maxDriveMinsDay / dayTotal[day] : 1.0;
   });
 
+  // ── Step 3: Walk stops and assign times ───────────────────────────
   let clockMins = START_MINS;
   let lastDay   = -1;
 
@@ -1553,33 +1653,33 @@ function recalculateTiming(stops, maxDriveHours) {
       clockMins = START_MINS;
     }
 
-    const m = (stop.distFromPrev || '').match(/([0-9]+(?:[.][0-9]+)?)/);
-    const rawMiles = m ? parseFloat(m[1]) : 0;
-    const miles    = rawMiles * (dayScale[stop.day] || 1.0);
-    const driveMin = miles > 0 ? Math.round((miles / AVG_MPH) * 60) : 0;
-
-    const isRestStop = ['overnight','destination','destination-overnight'].includes(stop.stopType);
+    const rawMins  = driveMins[i] || 0;
+    const scale    = dayScale[stop.day] || 1.0;
+    const driveMin = Math.round(rawMins * scale);
 
     if (i === 0) {
       stop.arrivalTime   = '';
       stop.departTime    = '08:00';
       stop.driveFromPrev = '0 min';
-    } else if (rawMiles === 0) {
+
+    } else if (rawMins === 0) {
       stop.arrivalTime = '';
       stop.departTime  = '';
+
     } else {
       const arrivalMins = clockMins + driveMin;
       stop.arrivalTime  = minsToTime(arrivalMins);
 
-      if (isRestStop) {
+      if (REST_TYPES.has(stop.stopType)) {
         stop.departTime = '';
       } else {
-        const dwell      = (DWELL[stop.stopType] !== undefined) ? DWELL[stop.stopType] : 60;
+        const dwell      = DWELL[stop.stopType] ?? 60;
         const departMins = arrivalMins + dwell;
         stop.departTime  = minsToTime(departMins);
         clockMins        = departMins;
       }
 
+      // Pretty drive label from real API minutes
       const dh = Math.floor(driveMin / 60);
       const dm = driveMin % 60;
       stop.driveFromPrev = dh > 0
@@ -1591,12 +1691,32 @@ function recalculateTiming(stops, maxDriveHours) {
   return stops;
 }
 
+// Call Distance Matrix API for one origin→destination pair
+// Returns drive time in minutes
+function getDistanceMatrixDuration(origin, destination, apiKey) {
+  return new Promise((resolve, reject) => {
+    const svc = new google.maps.DistanceMatrixService();
+    svc.getDistanceMatrix({
+      origins: [origin],
+      destinations: [destination],
+      travelMode: google.maps.TravelMode.DRIVING,
+      unitSystem: google.maps.UnitSystem.IMPERIAL,
+    }, (response, status) => {
+      if (status !== 'OK') return reject(new Error('DistanceMatrix: ' + status));
+      const el = response?.rows?.[0]?.elements?.[0];
+      if (el?.status !== 'OK') return reject(new Error('Element status: ' + el?.status));
+      // duration.value is in seconds
+      resolve(Math.round(el.duration.value / 60));
+    });
+  });
+}
 
 function minsToTime(totalMins) {
   const h = Math.floor(totalMins / 60) % 24;
   const m = totalMins % 60;
   return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
 }
+
 
 function renderStops(listId, stops) {
   const list = document.getElementById(listId);
@@ -1785,8 +1905,7 @@ function exportItinerary() {
 
 // ── HELPERS ───────────────────────────────────────────────────────
 function getKey(type) {
-  return document.getElementById(type === 'gemini' ? 'geminiKey' : 'mapsKey').value.trim()
-    || localStorage.getItem(type === 'gemini' ? 'wp_gemini_key' : 'wp_maps_key');
+  return type === 'gemini' ? 'AIzaSyB5lNj7Ym5AUqRW56hLqILwa2ynwyfCtOY' : 'AIzaSyDt-6AmRDkqYyMQieZNk88xuAXBlO2vSEg';
 }
 
 function setStatus(msg, state) {
@@ -1824,6 +1943,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.9.2</div>
+  <div class="version-stamp">WAYPOINT v1.1.0</div>
 </body>
 </html>
