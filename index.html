@@ -97,18 +97,19 @@
   .drawer-handle-left { display:flex; align-items:center; gap:14px; }
   .drawer-title {
     font-family:'Bebas Neue',sans-serif;
-    font-size:16px; letter-spacing:4px; color:#e8e5e0;
+    font-size:16px; letter-spacing:4px; color:#f0ede8;
   }
   .drawer-mode-tabs { display:flex; gap:2px; }
   .drawer-tab {
     font-family:'JetBrains Mono',monospace;
     font-size:9px; letter-spacing:2px; text-transform:uppercase;
-    padding:5px 12px; border-radius:6px; border:none;
-    background:transparent; color:#666; cursor:pointer;
+    padding:5px 12px; border-radius:6px; border:1px solid #444;
+    background:rgba(255,255,255,.07); color:#bbb; cursor:pointer;
     transition:all .15s;
   }
-  .drawer-tab.active-route  { background:#b45309; color:#fff; }
-  .drawer-tab.active-surprise { background:#6d28d9; color:#fff; }
+  .drawer-tab:hover { color:#fff; border-color:#666; }
+  .drawer-tab.active-route    { background:#b45309; color:#fff; border-color:#b45309; }
+  .drawer-tab.active-surprise { background:#6d28d9; color:#fff; border-color:#6d28d9; }
   .drawer-chevron {
     font-size:14px; color:#555; transition:transform .3s;
   }
@@ -487,7 +488,7 @@
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px">
-        <span><span class="sdot" id="statusDot"></span><span id="statusText" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#555;letter-spacing:1px">Maps loading...</span></span>
+        <span><span class="sdot" id="statusDot"></span><span id="statusText" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#aaa;letter-spacing:1px">Maps loading...</span></span>
         <span class="drawer-chevron">▲</span>
       </div>
     </div>
@@ -746,8 +747,8 @@ function exportPDF() {
 
 // ── LOGIN GATE ─────────────────────────────────────────────────────
 const VALID_USERS = {
-  'jeff': 'greenbay',
-  'lucas': 'francis'
+  'waypoint': 'roadtrip2024',
+  'broadband': 'waypointpro'
 };
 
 function tryLogin() {
