@@ -1063,7 +1063,7 @@ async function generateRoute() {
       itinerary = await callGemini(geminiKey, prompt);
     }
     hideThinking('r');
-    currentStops = recalculateTiming(normalizeStops(itinerary.stops, origin));
+    currentStops = recalculateTiming(normalizeStops(itinerary.stops, origin), driveHours);
     renderStops('r-stopsList', itinerary.stops);
     document.getElementById('r-stopsContainer').style.display = 'block';
     await renderMap(itinerary.stops);
@@ -1092,7 +1092,7 @@ FROM: ${origin} | TO: ${destination} | DAYS: ${tripDays} | DRIVE/DAY: ${driveHou
 
 STRUCTURE: ${outDays} driving days out${nightsDest>0?' / '+nightsDest+' nights at '+destination:''}${roundTrip?' / '+retDays+' driving days back to '+origin:''}
 
-RULES: Depart 08:00 each driving day. Use full ${eff}h net drive per day. MUST reach ${destination}. ${roundTrip?'Must return to '+origin+' as final stop.':''} Overnight stops in real towns. ${nightsDest>0?nightsDest+' full rest nights at '+destination+'.':''} Include ${minStops}-${maxStops} stops.
+RULES: MUST reach ${destination}. ${roundTrip?'Must return to '+origin+' as final stop.':''} Overnight stops in real towns. ${nightsDest>0?nightsDest+' full rest nights at '+destination+'.':''} Include ${minStops}-${maxStops} stops. CRITICAL: Total distFromPrev miles across ALL stops on the SAME day must not exceed ${Math.round(parseFloat(eff)*55)} miles (= ${eff}h x 55mph). Split long drives across multiple stops.
 
 JSON schema:
 {"summary":"","totalMiles":0,"totalDriveHours":0,"daysBreakdown":"Xd out / Yn dest / Zd back",
@@ -1238,7 +1238,7 @@ async function buildSelectedTrip() {
       itinerary = await callGemini(geminiKey, prompt);
     }
     hideThinking('s');
-    currentStops = recalculateTiming(normalizeStops(itinerary.stops, p.homebase));
+    currentStops = recalculateTiming(normalizeStops(itinerary.stops, p.homebase), p.driveHours);
     renderStops('s-stopsList', itinerary.stops);
     document.getElementById('s-stopsContainer').style.display = 'block';
     await renderMap(itinerary.stops);
@@ -1271,7 +1271,7 @@ TRIP: "${idea.title}" | FROM: ${params.homebase} | TO: ${idea.destination} | ROU
 
 STRUCTURE: ${outDays}d driving out${params.nightsDest>0?' / '+params.nightsDest+'n at '+idea.destination:''}${params.roundTrip?' / '+returnDays+'d back to '+params.homebase:''}
 
-RULES: Depart 08:00 each driving day. Net ${effectiveDriveHrs}h drive/day (1.4h buffer for delays). MUST reach ${idea.destination}. ${params.roundTrip?'Final stop = '+params.homebase+'.':(params.nightsDest>0?params.nightsDest+' rest nights at dest.':'')} Overnights in real interesting towns. Include ${minStops}-${minStops*2+2} stops total.
+RULES: MUST reach ${idea.destination}. ${params.roundTrip?'Final stop = '+params.homebase+'.':(params.nightsDest>0?params.nightsDest+' rest nights at dest.':'')} Overnights in real interesting towns. CRITICAL: sum of distFromPrev for all stops on same day must not exceed ${Math.round(parseFloat(effectiveDriveHrs)*55)} miles (= ${effectiveDriveHrs}h net x 55mph). Include ${minStops}-${minStops*2+2} stops total.
 
 JSON: {"summary":"","totalMiles":0,"totalDriveHours":0,"daysBreakdown":"",
 "stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"What to do/see here and why.","stopType":"origin","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
@@ -1518,60 +1518,68 @@ function normalizeStops(stops, originCity) {
 
 // ── TIMING RECALCULATOR ───────────────────────────────────────────
 // Calculates accurate departure/arrival times from distFromPrev miles
-function recalculateTiming(stops) {
-  const AVG_MPH    = 55;   // realistic avg incl. towns, signals, slowing
-  const START_MINS = 8*60; // 08:00 departure each driving day
+function recalculateTiming(stops, maxDriveHours) {
+  const AVG_MPH      = 55;
+  const START_MINS   = 8 * 60;
+  const maxDriveMins = (maxDriveHours || 8) * 60;
 
-  // Minutes spent AT a stop before departing
   const DWELL = {
     'origin': 0, 'brief': 30, 'activity': 90,
-    'overnight': 0, 'destination': 60, 'destination-overnight': 0,
+    'overnight': 0, 'destination': 0, 'destination-overnight': 0,
   };
+
+  // Pre-pass: total raw miles per day so we can scale if over budget
+  const dayMiles = {};
+  stops.forEach(s => {
+    const m = (s.distFromPrev || '').match(/([0-9]+(?:[.][0-9]+)?)/);
+    const miles = m ? parseFloat(m[1]) : 0;
+    dayMiles[s.day] = (dayMiles[s.day] || 0) + miles;
+  });
+
+  // Scale factor: compress days that exceed the drive budget
+  const dayScale = {};
+  Object.keys(dayMiles).forEach(day => {
+    const totalMins = Math.round((dayMiles[day] / AVG_MPH) * 60);
+    dayScale[day] = totalMins > maxDriveMins && totalMins > 0
+      ? maxDriveMins / totalMins : 1.0;
+  });
 
   let clockMins = START_MINS;
   let lastDay   = -1;
 
   stops.forEach((stop, i) => {
-    // Reset clock to 08:00 at start of each new driving day
     if (stop.day !== lastDay) {
       lastDay   = stop.day;
       clockMins = START_MINS;
     }
 
-    // Parse miles from distFromPrev field
-    const m = (stop.distFromPrev || '').match(/(\d+(?:\.\d+)?)/);
-    const miles = m ? parseFloat(m[1]) : 0;
+    const m = (stop.distFromPrev || '').match(/([0-9]+(?:[.][0-9]+)?)/);
+    const rawMiles = m ? parseFloat(m[1]) : 0;
+    const miles    = rawMiles * (dayScale[stop.day] || 1.0);
     const driveMin = miles > 0 ? Math.round((miles / AVG_MPH) * 60) : 0;
 
     const isRestStop = ['overnight','destination','destination-overnight'].includes(stop.stopType);
 
     if (i === 0) {
-      // Origin: departs 08:00, no arrival
       stop.arrivalTime   = '';
       stop.departTime    = '08:00';
       stop.driveFromPrev = '0 min';
-    } else if (miles === 0) {
-      // Rest/overnight day: no driving, no departure shown
-      stop.arrivalTime   = '';
-      stop.departTime    = '';
+    } else if (rawMiles === 0) {
+      stop.arrivalTime = '';
+      stop.departTime  = '';
     } else {
-      // Driving stop: arrive = clock + drive time
       const arrivalMins = clockMins + driveMin;
       stop.arrivalTime  = minsToTime(arrivalMins);
 
       if (isRestStop) {
-        // Sleeping here — no depart time shown
         stop.departTime = '';
-        clockMins = START_MINS; // next day resets anyway
       } else {
-        // Depart after dwell
         const dwell      = (DWELL[stop.stopType] !== undefined) ? DWELL[stop.stopType] : 60;
         const departMins = arrivalMins + dwell;
         stop.departTime  = minsToTime(departMins);
         clockMins        = departMins;
       }
 
-      // Pretty drive time label
       const dh = Math.floor(driveMin / 60);
       const dm = driveMin % 60;
       stop.driveFromPrev = dh > 0
@@ -1582,6 +1590,7 @@ function recalculateTiming(stops) {
 
   return stops;
 }
+
 
 function minsToTime(totalMins) {
   const h = Math.floor(totalMins / 60) % 24;
@@ -1815,6 +1824,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.9.0</div>
+  <div class="version-stamp">WAYPOINT v0.9.2</div>
 </body>
 </html>
