@@ -856,13 +856,48 @@ window.initMap = function() {
 };
 
 // ══════════════════════════════════════════════════════════════════
+// ── FEASIBILITY CHECK ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+async function checkFeasibility(origin, destination, driveHoursPerDay, tripDays, roundTrip) {
+  return new Promise(resolve => {
+    const svc = new google.maps.DistanceMatrixService();
+    svc.getDistanceMatrix({
+      origins: [origin],
+      destinations: [destination],
+      travelMode: google.maps.TravelMode.DRIVING,
+    }, (res, status) => {
+      if (status !== 'OK') return resolve({ warning: null });
+      const el = res.rows?.[0]?.elements?.[0];
+      if (!el || el.status !== 'OK') return resolve({ warning: null });
+
+      const oneWayHours = el.duration.value / 3600;
+      const totalDriveHours = roundTrip ? oneWayHours * 2 : oneWayHours;
+      const availableDriveHours = driveHoursPerDay * tripDays;
+      const minDaysNeeded = Math.ceil(totalDriveHours / driveHoursPerDay);
+      const oneWayMiles = Math.round(el.distance.value / 1609);
+
+      if (totalDriveHours > availableDriveHours * 0.9) {
+        resolve({
+          warning: `${roundTrip ? 'Round trip' : 'Drive'} is ~${Math.round(totalDriveHours)}h but you only have ${availableDriveHours}h total. Need at least ${minDaysNeeded} days. Gemini will do its best.`,
+          tooShort: true,
+          minDaysNeeded,
+          oneWayMiles
+        });
+      } else {
+        resolve({ warning: null, oneWayMiles });
+      }
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
 // ── ROUTE MODE ────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════
 async function generateRoute() {
   const origin      = document.getElementById('r-origin').value.trim();
   const destination = document.getElementById('r-destination').value.trim();
-  const driveHours  = document.getElementById('r-driveHours').value || 6;
-  const tripDays    = document.getElementById('r-tripDays').value || 3;
+  const driveHours  = Number(document.getElementById('r-driveHours').value || 6);
+  const tripDays    = Number(document.getElementById('r-tripDays').value || 3);
   const departDate  = document.getElementById('r-departDate').value.trim();
   const notes       = document.getElementById('r-notes').value.trim();
   const interests   = [...document.querySelectorAll('#r-interests input:checked')].map(c => c.value);
@@ -871,6 +906,12 @@ async function generateRoute() {
   const mapsKey     = getKey('maps');
 
   if (!origin || !destination) return setStatus('Enter origin and destination', 'error');
+
+  // Feasibility check via Maps before sending to Gemini
+  if (mapsLoaded) {
+    const feasible = await checkFeasibility(origin, destination, driveHours, tripDays, roundTrip);
+    if (feasible.warning) setStatus('⚠ ' + feasible.warning, 'loading');
+  }
   if (!geminiKey) return setStatus('Gemini API key required', 'error');
   if (!mapsKey)   return setStatus('Google Maps API key required', 'error');
   if (!mapsLoaded) { loadGoogleMaps(mapsKey); return setStatus('Loading maps...', 'loading'); }
@@ -940,9 +981,12 @@ Return ONLY this JSON:
 Rules:
 - type: "origin" for first stop, "destination" for LAST stop, "waypoint" for all others
 - ${roundTrip ? 'Last stop name/location must match the origin — it is the return home' : 'Last stop is the final destination'}
-- Include ${Math.max(2, Math.floor(tripDays * 2))} to ${Math.floor(tripDays * 3)} stops total
-- Daily driving must not exceed ${driveHours} hours
-- Prioritize interest-matching stops
+- YOU MUST ACTUALLY REACH ${roundTrip ? destination + ' before turning back' : destination} — do not stop short
+- Spread the drive realistically: if total one-way distance requires multiple long days, use them
+- Each driving day can use the FULL ${driveHours} hours of driving — do not be conservative
+- Stops along the way are brief (1-3 hours) unless it is an overnight stop
+- Overnight stops happen at the end of each driving day — label them clearly in description
+- Include ${Math.max(2, Math.floor(tripDays * 1.5))} to ${Math.floor(tripDays * 2.5)} stops total (fewer is fine if the drive demands it)
 - Addresses must be specific enough for Google Maps geocoding
 - driveFromPrev for first stop = "0 min"`;
 }
@@ -1131,7 +1175,10 @@ Return ONLY this JSON:
 Rules:
 - type: "origin" first, "destination" last, "waypoint" for others
 - ${params.roundTrip ? 'Last stop must be back at ' + params.homebase + ' — same name/address as origin' : 'Last stop is ' + idea.destination}
-- Include ${Math.max(3, Math.floor(params.days * 2))} to ${Math.floor(params.days * 3)} stops total
+- YOU MUST ACTUALLY REACH ${params.roundTrip ? idea.destination + ' before turning back' : idea.destination} — do not stop short of the destination
+- Use the FULL ${params.driveHours} hrs of driving each day — do not be conservative with mileage
+- Brief stops (1-3 hrs) are fine during driving days; overnight stops end each day
+- Include ${Math.max(3, Math.floor(params.days * 1.5))} to ${Math.floor(params.days * 2.5)} stops total
 - Daily driving must not exceed ${params.driveHours} hours
 - First stop driveFromPrev = "0 min"
 - Addresses must work in Google Maps geocoding`;
@@ -1454,6 +1501,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.2.0</div>
+  <div class="version-stamp">WAYPOINT v0.3.0</div>
 </body>
 </html>
