@@ -839,6 +839,12 @@ function tryLogin() {
     } else {
       openDrawer();
     }
+    // Trigger map resize so tiles load after login gate hides
+    setTimeout(() => {
+      if (typeof map !== 'undefined' && map) {
+        google.maps.event.trigger(map, 'resize');
+      }
+    }, 300);
   } else {
     errEl.textContent = 'Invalid username or password';
     document.getElementById('loginPass').value = '';
@@ -865,6 +871,9 @@ function showKeySetup() {
 }
 function hideKeySetup() {
   document.getElementById('keySetup').classList.add('hidden');
+  setTimeout(() => {
+    if (typeof map !== 'undefined' && map) google.maps.event.trigger(map, 'resize');
+  }, 300);
 }
 
 async function saveAndContinue() {
@@ -1025,6 +1034,8 @@ window.initMap = function() {
     fullscreenControl: false,
   });
   directionsService = new google.maps.DirectionsService();
+  // Trigger resize once map is mounted so tiles render correctly
+  setTimeout(() => google.maps.event.trigger(map, 'resize'), 200);
   directionsRenderer = new google.maps.DirectionsRenderer({
     map,
     suppressMarkers: true,
