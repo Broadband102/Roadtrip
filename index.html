@@ -420,7 +420,58 @@
   }
   .login-btn:hover { background:#92400e; }
   .login-error { color:#f87171; font-size:11px; margin-top:8px; min-height:16px; }
-</style>
+
+    /* ── KEY SETUP SCREEN ── */
+    #keySetup {
+      position:fixed; inset:0;
+      background: linear-gradient(135deg,#1c1917 0%,#292524 100%);
+      display:flex; align-items:center; justify-content:center;
+      z-index:9998;
+    }
+    #keySetup.hidden { display:none; }
+    .setup-box {
+      background:#222; border:1px solid #2a2a28;
+      border-radius:18px; padding:40px 48px;
+      text-align:center; max-width:420px; width:90%;
+      box-shadow:0 24px 64px rgba(0,0,0,.5);
+    }
+    .setup-title {
+      font-family:'Bebas Neue',sans-serif;
+      font-size:28px; color:#d97706;
+      letter-spacing:4px; margin-bottom:6px;
+    }
+    .setup-sub {
+      font-size:12px; color:#888; margin-bottom:6px; line-height:1.6;
+    }
+    .setup-link {
+      font-size:11px; color:#d97706; margin-bottom:24px; display:block;
+    }
+    .setup-link a { color:#d97706; }
+    .setup-field {
+      width:100%; padding:12px 16px; margin-bottom:10px;
+      background:#1a1a1a; border:1px solid #333;
+      border-radius:10px; color:#e8e5e0;
+      font-family:'JetBrains Mono',monospace; font-size:13px;
+      outline:none; box-sizing:border-box; transition:border .15s;
+      letter-spacing:1px;
+    }
+    .setup-field:focus { border-color:#d97706; }
+    .setup-btn {
+      width:100%; padding:13px; margin-top:4px;
+      background:#b45309; color:#fff; border:none;
+      border-radius:10px; font-family:'Bebas Neue',sans-serif;
+      font-size:17px; letter-spacing:4px; cursor:pointer;
+      transition:background .15s;
+    }
+    .setup-btn:hover { background:#92400e; }
+    .setup-error { color:#f87171; font-size:11px; margin-top:8px; min-height:16px; }
+    .setup-steps {
+      text-align:left; margin:16px 0 20px;
+      font-size:11px; color:#666; line-height:2;
+    }
+    .setup-steps span { color:#aaa; }
+
+  </style>
 </head>
 <body>
 
@@ -434,6 +485,25 @@
         onkeydown="if(event.key==='Enter') tryLogin()" />
       <button class="login-btn" onclick="tryLogin()">SIGN IN</button>
       <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+
+  <!-- KEY SETUP SCREEN -->
+  <div id="keySetup" class="hidden">
+    <div class="setup-box">
+      <div class="setup-title">ONE MORE THING</div>
+      <p class="setup-sub">WAYPOINT needs your personal Gemini API key to plan trips. It's free and takes 30 seconds.</p>
+      <div class="setup-steps">
+        <span>1.</span> Go to <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#d97706">aistudio.google.com/apikey</a><br>
+        <span>2.</span> Click <b style="color:#aaa">Create API key</b><br>
+        <span>3.</span> Copy and paste it below
+      </div>
+      <input class="setup-field" type="password" id="setupKeyInput"
+        placeholder="AIzaSy..."
+        onkeydown="if(event.key==='Enter') saveAndContinue()" />
+      <button class="setup-btn" onclick="saveAndContinue()">SAVE & START PLANNING</button>
+      <div class="setup-error" id="setupError"></div>
     </div>
   </div>
 
@@ -452,7 +522,7 @@
     <div class="topbar-right">
       <span class="top-badge">GEMINI</span>
       <span class="top-badge">GOOGLE MAPS</span>
-      <span class="version-stamp">WAYPOINT v1.3.1</span>
+      <span class="version-stamp">WAYPOINT v1.4.0</span>
     </div>
   </div>
 
@@ -758,11 +828,17 @@ function tryLogin() {
 
   if (VALID_USERS[user] && VALID_USERS[user] === pass) {
     sessionStorage.setItem('wp_auth', 'ok');
+    sessionStorage.setItem('wp_user', user);
     document.getElementById('loginGate').classList.add('hidden');
     errEl.textContent = '';
     const mk = getKey('maps');
     if (mk) loadGoogleMaps(mk);
-    openDrawer();
+    // Show key setup if no Gemini key saved yet
+    if (!hasGeminiKey()) {
+      showKeySetup();
+    } else {
+      openDrawer();
+    }
   } else {
     errEl.textContent = 'Invalid username or password';
     document.getElementById('loginPass').value = '';
@@ -773,11 +849,60 @@ function tryLogin() {
 function checkAuth() {
   if (sessionStorage.getItem('wp_auth') === 'ok') {
     document.getElementById('loginGate').classList.add('hidden');
+    if (!hasGeminiKey()) {
+      showKeySetup();
+    }
     return true;
   }
   return false;
 }
 
+
+
+// ── KEY SETUP ────────────────────────────────────────────────────────
+function showKeySetup() {
+  document.getElementById('keySetup').classList.remove('hidden');
+}
+function hideKeySetup() {
+  document.getElementById('keySetup').classList.add('hidden');
+}
+
+async function saveAndContinue() {
+  const key = document.getElementById('setupKeyInput').value.trim();
+  const errEl = document.getElementById('setupError');
+  if (!key || !key.startsWith('AIza')) {
+    errEl.textContent = 'Please enter a valid API key (starts with AIza...)';
+    return;
+  }
+  errEl.textContent = '';
+  // Quick test — verify key actually works
+  errEl.style.color = '#d97706';
+  errEl.textContent = 'Verifying key...';
+  try {
+    const r = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key,
+      { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ contents:[{parts:[{text:'Hi'}]}], generationConfig:{maxOutputTokens:5} }) }
+    );
+    if (r.status === 403 || r.status === 401) {
+      const d = await r.json();
+      errEl.style.color = '#f87171';
+      errEl.textContent = d.error?.message || 'Key rejected — check it and try again.';
+      return;
+    }
+    // 404 is ok — model might not exist but key is valid
+    saveGeminiKey(key);
+    hideKeySetup();
+    openDrawer();
+    errEl.style.color = '#f87171';
+    errEl.textContent = '';
+  } catch(e) {
+    // Network error — save anyway and let them try
+    saveGeminiKey(key);
+    hideKeySetup();
+    openDrawer();
+  }
+}
 
 // ── LAYOUT CONTROLS ──────────────────────────────────────────────────
 function toggleDrawer() {
@@ -1773,7 +1898,19 @@ function exportItinerary() {
 
 // ── HELPERS ───────────────────────────────────────────────────────
 function getKey(type) {
-  return type === 'gemini' ? 'AIzaSyB5lNj7Ym5AUqRW56hLqILwa2ynwyfCtOY' : 'AIzaSyDt-6AmRDkqYyMQieZNk88xuAXBlO2vSEg';
+  if (type === 'maps') return 'AIzaSyDt-6AmRDkqYyMQieZNk88xuAXBlO2vSEg';
+  // Gemini key stored per-user in localStorage
+  const user = sessionStorage.getItem('wp_user') || 'default';
+  return localStorage.getItem('wp_gemini_' + user) || '';
+}
+
+function saveGeminiKey(key) {
+  const user = sessionStorage.getItem('wp_user') || 'default';
+  localStorage.setItem('wp_gemini_' + user, key.trim());
+}
+
+function hasGeminiKey() {
+  return !!getKey('gemini');
 }
 
 function setStatus(msg, state) {
@@ -1815,6 +1952,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v1.3.1</div>
+  <div class="version-stamp">WAYPOINT v1.4.0</div>
 </body>
 </html>
