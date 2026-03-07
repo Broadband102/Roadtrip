@@ -1143,14 +1143,39 @@ async function callGemini(apiKey, prompt) {
   if (!data) throw new Error(lastErr + ' — Visit aistudio.google.com to verify your key.');
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  const clean = text.replace(/```json|```/g, '').trim();
+  return robustParseJSON(text);
+}
+
+// ── ROBUST JSON PARSER ────────────────────────────────────────────
+function robustParseJSON(raw) {
+  // Strip markdown fences
+  let clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
+  // Try straight parse first
+  try { return JSON.parse(clean); } catch(e1) {}
+
+  // Extract outermost JSON object
+  const start = clean.indexOf('{');
+  const end   = clean.lastIndexOf('}');
+  if (start !== -1 && end !== -1) {
+    clean = clean.slice(start, end + 1);
+    try { return JSON.parse(clean); } catch(e2) {}
+  }
+
+  // Fix common Gemini issues: trailing commas, unescaped quotes in strings, newlines in strings
+  let fixed = clean
+    .replace(/,\s*([}\]])/g, '$1')          // trailing commas
+    .replace(/([^\\])\n/g, '$1\\n')        // bare newlines inside strings
+    .replace(/\t/g, '\\t');                  // bare tabs
+
+  try { return JSON.parse(fixed); } catch(e3) {}
+
+  // Last resort: use Function constructor (handles more edge cases)
   try {
-    return JSON.parse(clean);
-  } catch(e) {
-    // Try to extract JSON object from response
-    const match = clean.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    throw new Error('Could not parse Gemini response as JSON');
+    return (new Function('return (' + fixed + ')'))();
+  } catch(e4) {
+    console.error('Raw Gemini response:', raw);
+    throw new Error('Could not parse Gemini response. Raw output logged to console.');
   }
 }
 
