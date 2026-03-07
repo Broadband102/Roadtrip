@@ -648,7 +648,7 @@
             <div class="field-label">Nights at dest</div>
             <input type="number" id="s-nightsDest" value="2" min="0" max="20" style="margin-bottom:0" />
           </div>
-          <label class="chip" style="white-space:nowrap;margin-top:16px">
+          <label id="s-roundtripChip" class="chip" style="white-space:nowrap;margin-top:16px">
             <input type="checkbox" id="s-roundtrip"> 🔄 Round Trip
           </label>
         </div>
@@ -1827,7 +1827,7 @@ async function renderMap(stops) {
     });
   }
 
-  document.getElementById('mapOverlay').classList.add('hidden');
+  document.getElementById('mapPlaceholder').classList.add('hidden');
   const bounds = new google.maps.LatLngBounds();
   valid.forEach(s => bounds.extend(s.latLng));
   map.fitBounds(bounds, { padding: 60 });
@@ -1839,7 +1839,7 @@ function renderSummary(itinerary, days) {
   document.getElementById('sumDist').textContent   = (itinerary.totalMiles || '—').toLocaleString();
   document.getElementById('sumDays').textContent   = days;
   document.getElementById('sumDrive').textContent  = (itinerary.totalDriveHours || '—') + 'h';
-  document.getElementById('tripSummary').classList.add('visible');
+  
   // Show breakdown if available
   if (itinerary.daysBreakdown) {
     setStatus('✦ ' + itinerary.daysBreakdown, 'success');
@@ -1869,8 +1869,8 @@ function resetSurprise() {
 }
 
 function clearMap() {
-  document.getElementById('tripSummary').classList.remove('visible');
-  document.getElementById('mapOverlay').classList.remove('hidden');
+  
+  document.getElementById('mapPlaceholder').classList.remove('hidden');
   if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
   if (window._markers) window._markers.forEach(m => m.setMap(null));
   currentStops = [];
