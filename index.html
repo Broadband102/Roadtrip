@@ -615,6 +615,7 @@
           <div style="margin-top:10px;display:flex;gap:8px">
             <button class="btn btn-secondary" style="flex:1" onclick="resetTrip()">↺ RESET</button>
             <button class="btn btn-secondary" style="flex:1" onclick="exportItinerary()">↓ EXPORT</button>
+            <button class="btn btn-secondary" style="flex:1" onclick="exportPDF()">📄 PDF</button>
           </div>
         </div>
 
@@ -722,6 +723,7 @@
           <div style="margin-top:10px;display:flex;gap:8px">
             <button class="btn btn-secondary" style="flex:1" onclick="resetSurprise()">↺ START OVER</button>
             <button class="btn btn-secondary" style="flex:1" onclick="exportItinerary()">↓ EXPORT</button>
+            <button class="btn btn-secondary" style="flex:1" onclick="exportPDF()">📄 PDF</button>
           </div>
         </div>
 
@@ -773,6 +775,119 @@ let currentStops = [];
 let currentMode = 'route';
 let selectedIdea = null;
 let lastSurpriseParams = null;
+
+// ── PDF EXPORT ────────────────────────────────────────────────────
+function exportPDF() {
+  if (!currentStops || currentStops.length === 0) {
+    return setStatus('Plan a trip first before exporting PDF', 'error');
+  }
+
+  // Group stops by day
+  const days = {};
+  currentStops.forEach(s => {
+    if (!days[s.day]) days[s.day] = [];
+    days[s.day].push(s);
+  });
+
+  const stopTypeLabel = {
+    'origin': '🏠 START', 'destination': '🎯 DESTINATION',
+    'destination-overnight': '🎯 DESTINATION', 'overnight': '🌙 OVERNIGHT',
+    'activity': '⭐ ACTIVITY', 'brief': '⛽ BRIEF STOP', 'waypoint': '📍 STOP',
+  };
+
+  // Build HTML for print
+  const tripTitle = currentStops[0]?.name + ' → ' + currentStops[currentStops.length-1]?.name;
+  const totalMiles = document.querySelector('.stat-value')?.textContent || '';
+
+  let html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>WAYPOINT Itinerary</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; font-size: 12px; color: #111; background: #fff; padding: 32px; }
+    .header { border-bottom: 3px solid #e8d56a; padding-bottom: 16px; margin-bottom: 24px; }
+    .header h1 { font-size: 28px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
+    .header .subtitle { font-size: 12px; color: #666; letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
+    .header .stats { display: flex; gap: 32px; margin-top: 12px; }
+    .header .stat { text-align: center; }
+    .header .stat .val { font-size: 20px; font-weight: 700; color: #b8a043; }
+    .header .stat .lbl { font-size: 9px; color: #999; letter-spacing: 2px; text-transform: uppercase; }
+    .day-header { background: #111; color: #e8d56a; font-size: 11px; font-weight: 700;
+      letter-spacing: 4px; text-transform: uppercase; padding: 6px 12px; margin: 20px 0 8px; }
+    .stop { border-left: 3px solid #ccc; padding: 8px 12px; margin-bottom: 8px; page-break-inside: avoid; }
+    .stop.origin { border-color: #22c55e; }
+    .stop.destination, .stop.dest-overnight { border-color: #ef4444; }
+    .stop.overnight { border-color: #60a5fa; }
+    .stop.activity { border-color: #e8d56a; }
+    .stop.brief { border-color: #999; }
+    .stop-header { display: flex; align-items: baseline; gap: 8px; }
+    .stop-num { font-size: 10px; font-weight: 700; color: #999; min-width: 20px; }
+    .stop-type { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #666; }
+    .stop-name { font-size: 14px; font-weight: 700; margin: 2px 0; }
+    .stop-location { font-size: 10px; color: #666; margin-bottom: 4px; }
+    .stop-timing { display: flex; gap: 16px; font-size: 10px; font-weight: 600;
+      font-family: monospace; margin: 4px 0; }
+    .depart { color: #2563eb; }
+    .arrive { color: #16a34a; }
+    .stop-drive { font-size: 10px; color: #666; margin-bottom: 3px; }
+    .stop-desc { font-size: 11px; color: #333; line-height: 1.5; }
+    .stop-highlight { font-size: 10px; color: #b8a043; font-weight: 600; margin-top: 3px; }
+    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #eee;
+      font-size: 9px; color: #999; text-align: center; letter-spacing: 2px; text-transform: uppercase; }
+    @media print { body { padding: 16px; } .day-header { break-before: auto; } }
+  </style></head><body>
+  <div class="header">
+    <h1>WAYPOINT</h1>
+    <div class="subtitle">AI Road Trip Planner — Trip Itinerary</div>
+    <div style="font-size:16px;font-weight:700;margin-top:8px">${tripTitle}</div>
+    <div class="stats">`;
+
+  // Pull stats from the stat bar
+  document.querySelectorAll('.stat').forEach(s => {
+    const val = s.querySelector('.stat-value')?.textContent || '';
+    const lbl = s.querySelector('.stat-label')?.textContent || '';
+    if (val && lbl) html += `<div class="stat"><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`;
+  });
+
+  html += `</div></div>`;
+
+  // Day sections
+  Object.keys(days).sort((a,b) => a-b).forEach(day => {
+    html += `<div class="day-header">Day ${day}</div>`;
+    days[day].forEach((stop, i) => {
+      const cls = stop.stopType === 'destination-overnight' ? 'dest-overnight' : (stop.stopType || 'waypoint');
+      const typeLabel = stopTypeLabel[stop.stopType] || '📍 STOP';
+      const hasTimer = (stop.departTime && stop.departTime !== '') || (stop.arrivalTime && stop.arrivalTime !== '');
+      const hasDrive = stop.driveFromPrev && stop.driveFromPrev !== '0 min';
+
+      html += `<div class="stop ${cls}">
+        <div class="stop-header">
+          <span class="stop-num">${String(stop.order || (i+1)).padStart(2,'0')}</span>
+          <span class="stop-type">${typeLabel}</span>
+        </div>
+        <div class="stop-name">${stop.name || ''}</div>
+        <div class="stop-location">${stop.location || ''}</div>
+        ${hasDrive ? `<div class="stop-drive">🚗 ${stop.driveFromPrev}${stop.distFromPrev && stop.distFromPrev !== '0 miles' ? ' · ' + stop.distFromPrev : ''}</div>` : ''}
+        ${hasTimer ? `<div class="stop-timing">
+          ${stop.arrivalTime ? `<span class="arrive">📍 ARRIVE ${stop.arrivalTime}</span>` : ''}
+          ${stop.departTime ? `<span class="depart">🕗 DEPART ${stop.departTime}</span>` : ''}
+        </div>` : ''}
+        <div class="stop-desc">${stop.description || ''}</div>
+        ${stop.highlight ? `<div class="stop-highlight">★ ${stop.highlight}</div>` : ''}
+      </div>`;
+    });
+  });
+
+  html += `<div class="footer">Generated by WAYPOINT — AI Road Trip Planner · waypoint.ai</div>
+  </body></html>`;
+
+  // Open print window
+  const win = window.open('', '_blank', 'width=800,height=900');
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 600);
+}
+
 
 // ── INIT ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
@@ -1428,28 +1543,33 @@ function recalculateTiming(stops) {
     const miles = m ? parseFloat(m[1]) : 0;
     const driveMin = miles > 0 ? Math.round((miles / AVG_MPH) * 60) : 0;
 
+    const isRestStop = ['overnight','destination','destination-overnight'].includes(stop.stopType);
+
     if (i === 0) {
-      // Very first stop = origin, departs at 08:00, no arrival shown
+      // Origin: departs 08:00, no arrival
       stop.arrivalTime   = '';
       stop.departTime    = '08:00';
       stop.driveFromPrev = '0 min';
-      // clock stays at START_MINS (08:00)
     } else if (miles === 0) {
-      // Rest day at destination — no driving, show as full day
-      stop.arrivalTime   = '—';
-      stop.departTime    = '08:00';
+      // Rest/overnight day: no driving, no departure shown
+      stop.arrivalTime   = '';
+      stop.departTime    = '';
     } else {
       // Driving stop: arrive = clock + drive time
-      const arrivalMins  = clockMins + driveMin;
-      stop.arrivalTime   = minsToTime(arrivalMins);
+      const arrivalMins = clockMins + driveMin;
+      stop.arrivalTime  = minsToTime(arrivalMins);
 
-      // Depart = arrive + dwell time at this stop
-      const dwell        = (DWELL[stop.stopType] !== undefined) ? DWELL[stop.stopType] : 60;
-      const departMins   = arrivalMins + dwell;
-      stop.departTime    = dwell > 0 ? minsToTime(departMins) : stop.arrivalTime;
-
-      // Advance clock to when we leave this stop
-      clockMins = departMins;
+      if (isRestStop) {
+        // Sleeping here — no depart time shown
+        stop.departTime = '';
+        clockMins = START_MINS; // next day resets anyway
+      } else {
+        // Depart after dwell
+        const dwell      = (DWELL[stop.stopType] !== undefined) ? DWELL[stop.stopType] : 60;
+        const departMins = arrivalMins + dwell;
+        stop.departTime  = minsToTime(departMins);
+        clockMins        = departMins;
+      }
 
       // Pretty drive time label
       const dh = Math.floor(driveMin / 60);
@@ -1511,10 +1631,10 @@ function renderStops(listId, stops) {
     card.className = 'stop-card ' + (stop.type || 'waypoint');
     card.style.borderLeftColor = stopTypeColor;
 
-    const timingHtml = (stop.departTime || stop.arrivalTime) ? `
+    const timingHtml = ((stop.departTime && stop.departTime !== '') || (stop.arrivalTime && stop.arrivalTime !== '')) ? `
       <div style="display:flex;gap:12px;margin-top:5px;font-family:'DM Mono',monospace;font-size:10px;">
-        ${stop.departTime && stop.departTime !== '—' ? `<span style="color:#60a5fa">🕗 DEPART ${stop.departTime}</span>` : ''}
-        ${stop.arrivalTime && stop.arrivalTime !== '—' ? `<span style="color:var(--success)">📍 ARRIVE ${stop.arrivalTime}</span>` : ''}
+        ${stop.departTime && stop.departTime !== '—' && stop.departTime !== '' ? `<span style="color:#60a5fa">🕗 DEPART ${stop.departTime}</span>` : ''}
+        ${stop.arrivalTime && stop.arrivalTime !== '—' && stop.arrivalTime !== '' ? `<span style="color:var(--success)">📍 ARRIVE ${stop.arrivalTime}</span>` : ''}
       </div>` : '';
 
     card.innerHTML = `
@@ -1695,6 +1815,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.8.2</div>
+  <div class="version-stamp">WAYPOINT v0.9.0</div>
 </body>
 </html>
