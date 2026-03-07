@@ -59,6 +59,18 @@
     margin-left: 12px;
   }
 
+  .version-stamp {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #3a3a36;
+    position: fixed;
+    bottom: 6px;
+    right: 10px;
+    z-index: 999;
+    user-select: none;
+  }
+
   .api-badges { display: flex; gap: 8px; align-items: center; }
 
   .badge {
@@ -1131,7 +1143,7 @@ async function callGemini(apiKey, prompt) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.8, maxOutputTokens: 4096 }
+        generationConfig: { temperature: 0.8, maxOutputTokens: 8192 }
       })
     });
     if (r.ok) { data = await r.json(); break; }
@@ -1193,7 +1205,42 @@ function robustParseJSON(raw) {
 
   try { return JSON.parse(fixJSON(clean)); } catch(e2) {}
 
-  // Last resort: tell Gemini to fix its own output
+  // Attempt to recover truncated JSON by closing open structures
+  function recoverTruncated(str) {
+    // Close any open string
+    let inString = false, escaped = false;
+    let result = str;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str[i];
+      if (escaped) { escaped = false; continue; }
+      if (ch === '\\') { escaped = true; continue; }
+      if (ch === '"') inString = !inString;
+    }
+    if (inString) result += '"'; // close open string
+
+    // Count unclosed brackets/braces and close them
+    let opens = [];
+    inString = false; escaped = false;
+    for (let i = 0; i < result.length; i++) {
+      const ch = result[i];
+      if (escaped) { escaped = false; continue; }
+      if (ch === '\\') { escaped = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{' || ch === '[') opens.push(ch);
+      if (ch === '}' || ch === ']') opens.pop();
+    }
+    // Close in reverse
+    for (let i = opens.length - 1; i >= 0; i--) {
+      result += opens[i] === '{' ? '}' : ']';
+    }
+    // Remove trailing commas again after recovery
+    result = result.replace(/,\s*([}\]])/g, '$1');
+    return result;
+  }
+
+  try { return JSON.parse(recoverTruncated(fixJSON(clean))); } catch(e3) {}
+
   console.error('Raw Gemini response:', raw);
   throw new Error('Could not parse Gemini response. Try again — Gemini occasionally produces malformed JSON.');
 }
@@ -1376,5 +1423,6 @@ function darkMapStyle() {
   ];
 }
 </script>
+  <div class="version-stamp">WAYPOINT v0.1.0</div>
 </body>
 </html>
