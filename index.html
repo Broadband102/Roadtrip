@@ -567,6 +567,9 @@
               </div>
             </div>
             <input type="text" id="r-departDate" placeholder="Departure date (e.g. June 15)" />
+            <label class="chip" id="r-roundtripChip" style="width:fit-content">
+              <input type="checkbox" id="r-roundtrip"> 🔄 Round Trip (return to origin)
+            </label>
           </div>
         </div>
 
@@ -670,6 +673,10 @@
           </div>
         </div>
 
+        <label class="chip" id="s-roundtripChip" style="width:fit-content">
+          <input type="checkbox" id="s-roundtrip"> 🔄 Round Trip (drive back home)
+        </label>
+
         <div class="input-group">
           <div class="section-label">Anything Else?</div>
           <textarea id="s-notes" rows="2" placeholder="Traveling with kids? Pet-friendly? Budget? Vibe? Tell Gemini..." style="resize:none"></textarea>
@@ -764,6 +771,14 @@ window.addEventListener('DOMContentLoaded', () => {
     cb.addEventListener('change', () => cb.closest('.chip').classList.toggle('active', cb.checked));
   });
 
+  // Round trip chip toggles
+  document.getElementById('r-roundtrip').addEventListener('change', function() {
+    document.getElementById('r-roundtripChip').classList.toggle('active', this.checked);
+  });
+  document.getElementById('s-roundtrip').addEventListener('change', function() {
+    document.getElementById('s-roundtripChip').classList.toggle('active', this.checked);
+  });
+
   // Surprise chips (purple active)
   document.querySelectorAll('#s-interests .chip input').forEach(cb => {
     cb.addEventListener('change', () => cb.closest('.chip').classList.toggle('active-purple', cb.checked));
@@ -851,6 +866,7 @@ async function generateRoute() {
   const departDate  = document.getElementById('r-departDate').value.trim();
   const notes       = document.getElementById('r-notes').value.trim();
   const interests   = [...document.querySelectorAll('#r-interests input:checked')].map(c => c.value);
+  const roundTrip   = document.getElementById('r-roundtrip').checked;
   const geminiKey   = getKey('gemini');
   const mapsKey     = getKey('maps');
 
@@ -865,7 +881,7 @@ async function generateRoute() {
   showThinking('r', 'Analyzing the drive, calculating stop timing, picking locations that match your interests...');
 
   try {
-    const prompt = buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes });
+    const prompt = buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip });
     const itinerary = await callGemini(geminiKey, prompt);
     hideThinking('r');
     currentStops = itinerary.stops;
@@ -883,17 +899,21 @@ async function generateRoute() {
   setBusy('r-generateBtn', false);
 }
 
-function buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes }) {
+function buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip }) {
+  const rtNote = roundTrip
+    ? `- This is a ROUND TRIP. The last stop must return to the origin: "${origin}". Budget drive time for the return journey within the ${driveHours} hrs/day limit. The "destination" stop should be the same place as the origin.`
+    : `- This is a ONE-WAY trip ending at ${destination}.`;
   return `You are an expert road trip planner. Respond ONLY with valid JSON — no markdown, no explanation.
 
 Plan a road trip:
 - Origin: ${origin}
-- Destination: ${destination}
+- ${roundTrip ? 'Turnaround destination' : 'Destination'}: ${destination}
 - Max driving hours per day: ${driveHours}
 - Total trip days: ${tripDays}
 - Departure: ${departDate || 'flexible'}
 - Interests: ${interests.length ? interests.join(', ') : 'general sightseeing'}
 - Notes: ${notes || 'none'}
+${rtNote}
 
 Return ONLY this JSON:
 {
@@ -918,7 +938,8 @@ Return ONLY this JSON:
 }
 
 Rules:
-- type: "origin" for first, "destination" for last, "waypoint" for others
+- type: "origin" for first stop, "destination" for LAST stop, "waypoint" for all others
+- ${roundTrip ? 'Last stop name/location must match the origin — it is the return home' : 'Last stop is the final destination'}
 - Include ${Math.max(2, Math.floor(tripDays * 2))} to ${Math.floor(tripDays * 3)} stops total
 - Daily driving must not exceed ${driveHours} hours
 - Prioritize interest-matching stops
@@ -936,6 +957,7 @@ async function generateSurprise() {
   const direction  = getSelectedDir();
   const interests  = [...document.querySelectorAll('#s-interests input:checked')].map(c => c.value);
   const notes      = document.getElementById('s-notes').value.trim();
+  const roundTrip  = document.getElementById('s-roundtrip').checked;
   const geminiKey  = getKey('gemini');
   const mapsKey    = getKey('maps');
 
@@ -945,7 +967,7 @@ async function generateSurprise() {
   if (!mapsLoaded) { loadGoogleMaps(mapsKey); return setStatus('Loading maps...', 'loading'); }
 
   // Save params for regenerate
-  lastSurpriseParams = { homebase, days, driveHours, direction, interests, notes };
+  lastSurpriseParams = { homebase, days, driveHours, direction, interests, notes, roundTrip };
 
   setBusy('s-generateBtn', true);
   document.getElementById('s-ideasContainer').style.display = 'none';
@@ -957,7 +979,7 @@ async function generateSurprise() {
   showThinking('s', 'Thinking about where to send you based on your interests, drive limits, and direction...');
 
   try {
-    const prompt = buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes });
+    const prompt = buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip });
     const result = await callGemini(geminiKey, prompt);
     hideThinking('s');
     renderIdeaCards(result.ideas);
@@ -972,7 +994,10 @@ async function generateSurprise() {
   setBusy('s-generateBtn', false);
 }
 
-function buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes }) {
+function buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip }) {
+  const rtNote = roundTrip
+    ? `- ROUND TRIP: the traveler must return to ${homebase} by end of day ${days}. Budget half the trip days for going out, half for coming back.`
+    : `- ONE-WAY trip, no need to return to start.`;
   return `You are an expert road trip planner and travel advisor. Respond ONLY with valid JSON — no markdown, no explanation.
 
 A traveler wants a surprise road trip. Generate 3 distinct trip concepts for them.
@@ -984,6 +1009,7 @@ Details:
 - Preferred direction: ${direction === 'any' ? 'open to anything' : direction}
 - Loves: ${interests.length ? interests.join(', ') : 'general travel'}
 - Extra notes: ${notes || 'none'}
+${rtNote}
 
 Return ONLY this JSON:
 {
@@ -1063,18 +1089,22 @@ async function buildSelectedTrip() {
 }
 
 function buildSurpriseItineraryPrompt(params, idea) {
+  const rtNote = params.roundTrip
+    ? `- ROUND TRIP: the last stop must return to ${params.homebase}. Plan outbound stops for roughly the first half of the trip and return stops for the second half, using different roads/towns where possible for variety.`
+    : `- ONE-WAY trip ending at ${idea.destination}.`;
   return `You are an expert road trip planner. Respond ONLY with valid JSON — no markdown, no explanation.
 
 Build a full day-by-day itinerary for this road trip:
 
 Trip concept: "${idea.title}"
 - Starts: ${params.homebase}
-- Destination: ${idea.destination}
+- ${params.roundTrip ? 'Furthest point' : 'Destination'}: ${idea.destination}
 - Route: ${idea.route_hint}
 - Duration: ${params.days} days
 - Max drive per day: ${params.driveHours} hours
 - Interests: ${params.interests.length ? params.interests.join(', ') : 'general travel'}
 - Notes: ${params.notes || 'none'}
+${rtNote}
 
 Return ONLY this JSON:
 {
@@ -1100,6 +1130,7 @@ Return ONLY this JSON:
 
 Rules:
 - type: "origin" first, "destination" last, "waypoint" for others
+- ${params.roundTrip ? 'Last stop must be back at ' + params.homebase + ' — same name/address as origin' : 'Last stop is ' + idea.destination}
 - Include ${Math.max(3, Math.floor(params.days * 2))} to ${Math.floor(params.days * 3)} stops total
 - Daily driving must not exceed ${params.driveHours} hours
 - First stop driveFromPrev = "0 min"
@@ -1423,6 +1454,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.1.0</div>
+  <div class="version-stamp">WAYPOINT v0.2.0</div>
 </body>
 </html>
