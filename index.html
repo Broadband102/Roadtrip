@@ -1035,7 +1035,7 @@ async function generateSurprise() {
   setBusy('s-generateBtn', false);
 }
 
-function buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip }) {
+function buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip, nightsDest = 0 }) {
   const BUFFER_HRS = 1.4;
   const effectiveDriveHrs = (driveHours - BUFFER_HRS).toFixed(1);
   const travelDays = days - (nightsDest || 0);
@@ -1595,6 +1595,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.7.1</div>
+  <div class="version-stamp">WAYPOINT v0.7.2</div>
 </body>
 </html>
