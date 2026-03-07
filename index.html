@@ -6,547 +6,418 @@
 <title>WAYPOINT — AI Road Trip Planner</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0a0a08;
-    --surface: #111110;
-    --surface2: #1a1a18;
-    --border: #2a2a26;va
-    --accent: #e8d56a;
-    --accent2: #c8a84b;
-    --text: #e8e8e0;
-    --muted: #888880;
-    --danger: #e86a6a;
-    --success: #6ae8a0;
-    --surprise: #a78bfa;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 24px;
-    height: 56px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-    flex-shrink: 0;
-    z-index: 100;
-  }
-
-  .logo {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 28px;
-    letter-spacing: 6px;
-    color: var(--accent);
-  }
-
-  .logo span {
-    color: var(--muted);
-    font-size: 12px;
-    font-family: 'DM Mono', monospace;
-    letter-spacing: 2px;
-    margin-left: 12px;
-  }
-
-  .version-stamp {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 1px;
-    color: #3a3a36;
-    position: fixed;
-    bottom: 6px;
-    right: 10px;
-    z-index: 999;
-    user-select: none;
-  }
-
-  .api-badges { display: flex; gap: 8px; align-items: center; }
-
-  .badge {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 1px;
-    padding: 3px 8px;
-    border-radius: 3px;
-    border: 1px solid var(--border);
-    color: var(--muted);
-  }
-
-  .main { display: flex; flex: 1; overflow: hidden; }
-
-  /* ── SIDEBAR ── */
-  .sidebar {
-    width: 400px;
-    flex-shrink: 0;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .sidebar-inner {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-  }
-
-  .sidebar-inner::-webkit-scrollbar { width: 4px; }
-  .sidebar-inner::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-  /* ── MODE SWITCHER ── */
-  .mode-switcher {
-    display: flex;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 4px;
-    gap: 4px;
-  }
-
-  .mode-btn {
-    flex: 1;
-    padding: 8px 10px;
-    border-radius: 5px;
-    border: none;
-    cursor: pointer;
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    transition: all 0.2s;
-    background: transparent;
-    color: var(--muted);
-  }
-
-  .mode-btn.active-route {
-    background: var(--accent);
-    color: #0a0a08;
-  }
-
-  .mode-btn.active-surprise {
-    background: var(--surprise);
-    color: #0a0a08;
-  }
-
-  .mode-btn:not(.active-route):not(.active-surprise):hover {
-    color: var(--text);
-  }
-
-  /* ── PANELS ── */
-  .panel { display: none; flex-direction: column; gap: 14px; }
-  .panel.active { display: flex; }
-
-  /* ── KEYS ── */
-  .keys-panel {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-  }
-
-  .section-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: var(--muted);
-    text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-
-  .key-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .key-row:last-of-type { margin-bottom: 0; }
-
-  .key-icon {
-    width: 28px; height: 28px;
-    border-radius: 6px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px; flex-shrink: 0;
-  }
-
-  .key-icon.maps { background: rgba(66,133,244,0.15); }
-  .key-icon.gemini { background: rgba(232,213,106,0.15); }
-
-  .key-input-wrap { flex: 1; position: relative; }
-  .key-input-wrap input { padding-right: 36px; font-family: 'DM Mono', monospace; font-size: 11px; }
-
-  .key-toggle {
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; padding: 0;
-  }
-
-  /* ── INPUTS ── */
-  input[type="text"], input[type="number"], select, textarea {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    padding: 10px 14px;
-    border-radius: 6px;
-    outline: none;
-    transition: border-color 0.2s;
-    width: 100%;
-  }
-
-  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
-  select option { background: var(--surface2); }
-
-  .input-group { display: flex; flex-direction: column; gap: 6px; }
-  .input-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 1px; }
-  .row { display: flex; gap: 10px; }
-  .row > * { flex: 1; }
-
-  /* ── CHIPS ── */
-  .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
-
-  .chip {
-    display: flex; align-items: center; gap: 5px;
-    padding: 5px 11px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.2s;
-    user-select: none;
-  }
-
-  .chip.active {
-    border-color: var(--accent);
-    background: rgba(232,213,106,0.1);
-    color: var(--accent);
-  }
-
-  .chip.active-purple {
-    border-color: var(--surprise);
-    background: rgba(167,139,250,0.1);
-    color: var(--surprise);
-  }
-
-  .chip input { display: none; }
-
-  /* ── BUTTONS ── */
-  .btn {
-    padding: 12px 20px;
-    border-radius: 6px;
-    border: none;
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 2px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-transform: uppercase;
-    width: 100%;
-  }
-
-  .btn-route { background: var(--accent); color: #0a0a08; }
-  .btn-route:hover { background: var(--accent2); }
-  .btn-route:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .btn-surprise { background: var(--surprise); color: #0a0a08; }
-  .btn-surprise:hover { background: #8b5cf6; }
-  .btn-surprise:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .btn-secondary {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--muted);
-    font-size: 11px;
-  }
-
-  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-
-  /* ── RADIUS SLIDER ── */
-  .slider-wrap { display: flex; flex-direction: column; gap: 6px; }
-
-  .slider-row { display: flex; align-items: center; gap: 12px; }
-
-  input[type="range"] {
-    flex: 1;
-    -webkit-appearance: none;
-    height: 4px;
-    background: var(--border);
-    border-radius: 2px;
-    outline: none;
-    padding: 0;
-    border: none;
-  }
-
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 16px; height: 16px;
-    border-radius: 50%;
-    background: var(--surprise);
-    cursor: pointer;
-  }
-
-  .slider-val {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 20px;
-    color: var(--surprise);
-    min-width: 60px;
-    text-align: right;
-    letter-spacing: 1px;
-  }
-
-  /* ── DIRECTION PILLS ── */
-  .direction-group { display: flex; flex-wrap: wrap; gap: 6px; }
-
-  .dir-pill {
-    padding: 5px 12px;
-    border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    cursor: pointer;
-    font-size: 12px;
-    transition: all 0.2s;
-    user-select: none;
-    color: var(--muted);
-  }
-
-  .dir-pill.active {
-    border-color: var(--surprise);
-    background: rgba(167,139,250,0.1);
-    color: var(--surprise);
-  }
-
-  /* ── STATUS ── */
-  .status-bar {
-    padding: 10px 20px;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    min-height: 42px;
-  }
-
-  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
-  .status-dot.loading { background: var(--accent); animation: pulse 1s infinite; }
-  .status-dot.success { background: var(--success); }
-  .status-dot.error { background: var(--danger); }
-
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-
-  /* ── THINKING ── */
-  .thinking-box {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--muted);
-    line-height: 1.7;
-    display: none;
-  }
-
-  .thinking-box.visible { display: block; }
-
-  .think-label {
-    font-size: 9px;
-    letter-spacing: 3px;
-    margin-bottom: 6px;
-    text-transform: uppercase;
-  }
-
-  .think-label.route { color: var(--accent); }
-  .think-label.surprise { color: var(--surprise); }
-
-  /* ── STOP CARDS ── */
-  .stops-list { display: flex; flex-direction: column; gap: 8px; }
-
-  .stop-card {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 14px;
-    animation: slideIn 0.3s ease;
-  }
-
-  @keyframes slideIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
-
-  .stop-card.origin { border-left: 3px solid var(--success); }
-  .stop-card.destination { border-left: 3px solid var(--danger); }
-  .stop-card.waypoint { border-left: 3px solid var(--accent); }
-
-  .stop-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-
-  .stop-num {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 18px;
-    color: var(--accent);
-    line-height: 1;
-    min-width: 22px;
-  }
-
-  .stop-type { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
-  .stop-name { font-size: 14px; font-weight: 500; }
-  .stop-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
-  .stop-drive { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); margin-top: 4px; }
-  .stop-highlight { font-size: 11px; color: var(--accent); margin-top: 4px; }
-  .stop-duration { font-size: 11px; color: var(--muted); margin-top: 2px; }
-
-  /* ── TRIP IDEA CARDS (Surprise mode) ── */
-  .idea-card {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-    animation: slideIn 0.3s ease;
-  }
-
-  .idea-card:hover { border-color: var(--surprise); }
-  .idea-card.selected { border-color: var(--surprise); background: rgba(167,139,250,0.08); }
-
-  .idea-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 20px;
-    letter-spacing: 2px;
-    color: var(--surprise);
-    margin-bottom: 4px;
-  }
-
-  .idea-subtitle { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-  .idea-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
-
-  .idea-tag {
-    font-size: 10px;
-    font-family: 'DM Mono', monospace;
-    padding: 2px 8px;
-    border-radius: 10px;
-    border: 1px solid rgba(167,139,250,0.3);
-    color: var(--surprise);
-  }
-
-  .idea-meta { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
-
-  /* ── MAP ── */
-  .map-container { flex: 1; position: relative; background: var(--surface2); }
-  #map { width: 100%; height: 100%; }
-
-  .map-overlay {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    background: var(--surface2);
-    z-index: 10;
-    flex-direction: column; gap: 16px;
-    transition: opacity 0.4s;
-  }
-
-  .map-overlay.hidden { opacity: 0; pointer-events: none; }
-
-  .map-overlay-text {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 48px;
-    letter-spacing: 8px;
-    color: var(--border);
-    text-align: center;
-    line-height: 1.1;
-  }
-
-  .map-overlay-sub { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 3px; color: var(--muted); }
-
-  /* ── SUMMARY BAR ── */
-  .trip-summary {
-    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-    background: rgba(10,10,8,0.92);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 24px;
-    display: flex; gap: 32px;
-    backdrop-filter: blur(10px);
-    z-index: 20;
-    opacity: 0; transition: opacity 0.4s;
-  }
-
-  .trip-summary.visible { opacity: 1; }
-
-  .summary-stat { text-align: center; }
-
-  .summary-val {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 26px;
-    color: var(--accent);
-    letter-spacing: 2px;
-    line-height: 1;
-  }
-
-  .summary-lbl {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: var(--muted);
-    margin-top: 3px;
-    text-transform: uppercase;
-  }
-
-  .divider { height: 1px; background: var(--border); }
-
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+    /* ── LIGHT THEME VARIABLES ── */
+    :root {
+      --bg:         #f4f1eb;
+      --surface:    #ffffff;
+      --surface2:   #f9f7f3;
+      --border:     #e2ddd6;
+      --border2:    #ccc8c0;
+      --text:       #1a1814;
+      --text2:      #5a5650;
+      --muted:      #9a958e;
+      --accent:     #c4952a;
+      --accent-bg:  #fdf3dc;
+      --accent-dark:#9a7420;
+      --success:    #2d7a3a;
+      --danger:     #c0392b;
+      --info:       #2563eb;
+      --shadow:     0 2px 12px rgba(0,0,0,.08);
+      --shadow-lg:  0 8px 32px rgba(0,0,0,.12);
+      --radius:     10px;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; height: 52px;
+      background: var(--text);
+      flex-shrink: 0; z-index: 100;
+    }
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 26px; letter-spacing: 4px;
+      color: var(--accent); cursor: default;
+    }
+    .logo-sub {
+      font-size: 9px; letter-spacing: 3px; color: #888;
+      text-transform: uppercase; margin-left: 10px;
+    }
+    .topbar-right { display: flex; gap: 8px; }
+    .topbar-btn {
+      padding: 4px 12px; border: 1px solid #444;
+      background: transparent; color: #aaa;
+      border-radius: 5px; font-size: 10px;
+      letter-spacing: 1px; cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      transition: all .15s;
+    }
+    .topbar-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── LAYOUT ── */
+    .main-layout {
+      display: flex; flex: 1; overflow: hidden;
+    }
+    .sidebar {
+      width: 320px; flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-inner {
+      flex: 1; overflow-y: auto; padding: 16px;
+    }
+    .sidebar-inner::-webkit-scrollbar { width: 4px; }
+    .sidebar-inner::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+    .map-area { flex: 1; position: relative; }
+    #map { width: 100%; height: 100%; }
+
+    /* ── MODE TABS ── */
+    .mode-tabs {
+      display: flex; border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .mode-tab {
+      flex: 1; padding: 11px 8px;
+      font-size: 11px; letter-spacing: 2px;
+      font-family: 'DM Mono', monospace;
+      text-transform: uppercase; font-weight: 500;
+      border: none; background: transparent;
+      cursor: pointer; color: var(--muted);
+      border-bottom: 2px solid transparent;
+      transition: all .15s; margin-bottom: -1px;
+    }
+    .mode-tab.active-route {
+      color: var(--accent-dark);
+      border-bottom-color: var(--accent);
+      background: var(--surface);
+    }
+    .mode-tab.active-surprise {
+      color: #7c3aed;
+      border-bottom-color: #7c3aed;
+      background: var(--surface);
+    }
+
+    /* ── SECTION LABELS ── */
+    .section-label {
+      font-size: 9px; font-weight: 600; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--muted);
+      margin: 14px 0 6px;
+    }
+
+    /* ── INPUTS ── */
+    .input-field {
+      width: 100%; padding: 9px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 13px;
+      outline: none; transition: border-color .15s;
+      margin-bottom: 6px;
+    }
+    .input-field:focus { border-color: var(--accent); background: #fff; }
+    .input-field::placeholder { color: var(--muted); }
+
+    .input-row { display: flex; gap: 8px; margin-bottom: 6px; }
+    .input-row .input-field { margin-bottom: 0; }
+    .input-label {
+      font-size: 9px; font-weight: 600; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--text2);
+      margin-bottom: 3px;
+    }
+    .input-group { flex: 1; }
+
+    /* ── CHIPS ── */
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+    .chip {
+      padding: 4px 10px; border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      font-size: 11px; cursor: pointer;
+      transition: all .15s; color: var(--text2);
+      user-select: none;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent-dark); }
+    .chip.active {
+      background: var(--accent-bg);
+      border-color: var(--accent);
+      color: var(--accent-dark);
+      font-weight: 500;
+    }
+    .chip.active-purple {
+      background: #ede9fe;
+      border-color: #7c3aed;
+      color: #5b21b6;
+      font-weight: 500;
+    }
+    .chip-round { border-radius: 20px; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      width: 100%; padding: 11px;
+      border: none; border-radius: var(--radius);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 15px; letter-spacing: 3px;
+      cursor: pointer; transition: all .15s;
+      display: block;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-route {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(196,149,42,.3);
+    }
+    .btn-route:hover:not(:disabled) {
+      background: var(--accent-dark);
+      box-shadow: 0 4px 16px rgba(196,149,42,.4);
+    }
+    .btn-surprise {
+      background: #7c3aed;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(124,58,237,.3);
+    }
+    .btn-surprise:hover:not(:disabled) {
+      background: #6d28d9;
+      box-shadow: 0 4px 16px rgba(124,58,237,.4);
+    }
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text2);
+      border: 1px solid var(--border);
+      font-size: 11px; letter-spacing: 2px;
+      font-family: 'DM Mono', monospace;
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    /* ── THINKING BOX ── */
+    .thinking-box {
+      display: none; margin: 8px 0;
+      padding: 10px 12px;
+      background: var(--accent-bg);
+      border: 1px solid #e8d088;
+      border-radius: var(--radius);
+      font-size: 11px; color: var(--accent-dark);
+    }
+    .thinking-box.surprise-thinking {
+      background: #ede9fe; border-color: #c4b5fd; color: #5b21b6;
+    }
+    .think-label { font-weight: 600; margin-bottom: 3px; font-size: 11px; }
+    #r-thinkingText, #s-thinkingText { font-size: 10px; opacity: .8; }
+
+    /* ── STOP CARDS ── */
+    .stops-list { display: flex; flex-direction: column; gap: 6px; }
+    .stop-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--border);
+      border-radius: var(--radius);
+      padding: 9px 10px;
+      box-shadow: var(--shadow);
+    }
+    .stop-card.origin    { border-left-color: var(--success); }
+    .stop-card.destination { border-left-color: var(--danger); }
+    .stop-card.waypoint  { border-left-color: var(--accent); }
+    .stop-header { display: flex; align-items: flex-start; gap: 8px; }
+    .stop-num {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; font-weight: 600;
+      color: var(--muted); min-width: 20px;
+    }
+    .stop-type {
+      font-size: 9px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+    }
+    .stop-name {
+      font-size: 13px; font-weight: 600;
+      color: var(--text); margin: 1px 0;
+      line-height: 1.3;
+    }
+    .stop-meta {
+      font-size: 11px; color: var(--text2);
+      margin-bottom: 2px;
+    }
+    .stop-drive {
+      font-size: 10px; color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      margin-bottom: 3px;
+    }
+    .stop-highlight {
+      font-size: 10px; font-weight: 600;
+      color: var(--accent-dark);
+      margin-top: 3px;
+    }
+    .stop-duration { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* ── STAT BAR ── */
+    .stat-bar {
+      position: absolute; bottom: 16px; right: 16px;
+      display: flex; gap: 1px; overflow: hidden;
+      border-radius: 10px;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border);
+    }
+    .stat {
+      background: var(--surface);
+      padding: 10px 18px; text-align: center;
+      min-width: 70px;
+    }
+    .stat + .stat { border-left: 1px solid var(--border); }
+    .stat-value {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 22px; color: var(--accent);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 8px; color: var(--muted);
+      letter-spacing: 2px; text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+      padding: 6px 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--text2);
+      display: flex; align-items: center; gap: 6px;
+      flex-shrink: 0;
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0;
+    }
+    .status-dot.success { background: var(--success); }
+    .status-dot.error   { background: var(--danger); }
+    .status-dot.loading { background: var(--accent);
+      animation: pulse .8s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── MAP PLACEHOLDER ── */
+    .map-placeholder {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: var(--bg);
+      pointer-events: none;
+    }
+    .map-placeholder h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 52px; letter-spacing: 6px;
+      color: var(--border2); margin-bottom: 8px;
+    }
+    .map-placeholder p {
+      font-size: 12px; color: var(--muted);
+      letter-spacing: 2px; text-transform: uppercase;
+    }
+
+    /* ── DAY HEADERS ── */
+    .day-header-label {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 13px; letter-spacing: 4px;
+      color: var(--muted); padding: 8px 0 3px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+    }
+
+    /* ── IDEA CARDS ── */
+    .idea-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px; cursor: pointer;
+      transition: all .15s;
+      margin-bottom: 8px;
+    }
+    .idea-card:hover { border-color: #7c3aed; box-shadow: var(--shadow); }
+    .idea-card.selected { border-color: #7c3aed; background: #faf5ff; }
+    .idea-title {
+      font-size: 13px; font-weight: 600;
+      color: var(--text); margin-bottom: 3px;
+    }
+    .idea-dest {
+      font-size: 11px; color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+    .idea-desc { font-size: 11px; color: var(--text2); margin-top: 4px; line-height: 1.4; }
+
+    /* ── VERSION STAMP ── */
+    .version-stamp {
+      position: fixed; bottom: 8px; right: 8px;
+      font-size: 9px; color: var(--border2);
+      font-family: 'DM Mono', monospace;
+      letter-spacing: 1px; pointer-events: none;
+      z-index: 5;
+    }
 
     /* ── LOGIN GATE ── */
     #loginGate {
-      position: fixed; inset: 0; background: #0a0a08;
+      position: fixed; inset: 0;
+      background: var(--text);
       display: flex; align-items: center; justify-content: center;
-      z-index: 9999; flex-direction: column; gap: 24px;
+      z-index: 9999;
     }
     #loginGate.hidden { display: none; }
     .login-box {
-      background: #111110; border: 1px solid #2a2a28;
-      border-radius: 16px; padding: 40px 48px; text-align: center;
-      max-width: 360px; width: 90%;
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 16px; padding: 40px 48px;
+      text-align: center; max-width: 360px; width: 90%;
     }
     .login-logo {
-      font-family: 'Bebas Neue', sans-serif; font-size: 42px;
-      color: #e8d56a; letter-spacing: 4px; margin-bottom: 4px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 44px; color: var(--accent);
+      letter-spacing: 5px; margin-bottom: 4px;
     }
     .login-sub {
       font-size: 10px; letter-spacing: 3px; color: #666;
       text-transform: uppercase; margin-bottom: 32px;
     }
     .login-field {
-      width: 100%; padding: 12px 16px; margin-bottom: 12px;
-      background: #0a0a08; border: 1px solid #2a2a28;
-      border-radius: 8px; color: #e8e8e0;
+      width: 100%; padding: 12px 16px; margin-bottom: 10px;
+      background: #1a1a1a; border: 1px solid #333;
+      border-radius: 8px; color: #eee;
       font-family: 'DM Mono', monospace; font-size: 13px;
       outline: none; box-sizing: border-box;
     }
-    .login-field:focus { border-color: #e8d56a; }
+    .login-field:focus { border-color: var(--accent); }
     .login-btn {
       width: 100%; padding: 13px; margin-top: 8px;
-      background: #e8d56a; color: #0a0a08; border: none;
-      border-radius: 8px; font-family: 'Bebas Neue', sans-serif;
-      font-size: 16px; letter-spacing: 3px; cursor: pointer;
-      transition: opacity .2s;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 8px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 16px; letter-spacing: 3px;
+      cursor: pointer; transition: background .15s;
     }
-    .login-btn:hover { opacity: .85; }
+    .login-btn:hover { background: var(--accent-dark); }
     .login-error {
-      color: #f87171; font-size: 11px; margin-top: 8px;
-      min-height: 16px; letter-spacing: 1px;
+      color: #f87171; font-size: 11px;
+      margin-top: 8px; min-height: 16px; letter-spacing: 1px;
     }
 
-    </style>
+    /* ── SCROLLBAR GLOBAL ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+  </style>
 </head>
 <body>
 
@@ -931,8 +802,8 @@ function exportPDF() {
 
 // ── LOGIN GATE ─────────────────────────────────────────────────────
 const VALID_USERS = {
-  'jeffday': 'greenbay',
-  'lucasbroussard': 'disneyislife'
+  'waypoint': 'roadtrip2024',
+  'broadband': 'waypointpro'
 };
 
 function tryLogin() {
@@ -1048,7 +919,7 @@ window.initMap = function() {
   directionsRenderer = new google.maps.DirectionsRenderer({
     map,
     suppressMarkers: true,
-    polylineOptions: { strokeColor: '#e8d56a', strokeWeight: 3, strokeOpacity: 0.9 }
+    polylineOptions: { strokeColor: '#c4952a', strokeWeight: 3, strokeOpacity: 0.9 }
   });
   geocoder = new google.maps.Geocoder();
   setStatus('Maps ready — plan your trip!', 'success');
@@ -1132,9 +1003,9 @@ async function generateRoute() {
     }
     hideThinking('r');
     currentStops = await recalculateTiming(normalizeStops(itinerary.stops, origin), driveHours);
-    renderStops('r-stopsList', itinerary.stops);
+    renderStops('r-stopsList', currentStops);
     document.getElementById('r-stopsContainer').style.display = 'block';
-    await renderMap(itinerary.stops);
+    await renderMap(currentStops);
     renderSummary(itinerary, tripDays);
     setStatus(`Route planned — ${itinerary.stops.length} stops over ${tripDays} days`, 'success');
   } catch(err) {
@@ -1307,9 +1178,9 @@ async function buildSelectedTrip() {
     }
     hideThinking('s');
     currentStops = await recalculateTiming(normalizeStops(itinerary.stops, p.homebase), p.driveHours);
-    renderStops('s-stopsList', itinerary.stops);
+    renderStops('s-stopsList', currentStops);
     document.getElementById('s-stopsContainer').style.display = 'block';
-    await renderMap(itinerary.stops);
+    await renderMap(currentStops);
     renderSummary(itinerary, p.days);
     setStatus(`Adventure planned — ${itinerary.stops.length} stops, ${p.days} days!`, 'success');
   } catch(err) {
@@ -1928,21 +1799,23 @@ function setBusy(id, busy) {
 
 // ── DARK MAP STYLE ────────────────────────────────────────────────
 function darkMapStyle() {
+  // Light, clean map style
   return [
-    { elementType: 'geometry', stylers: [{ color: '#111110' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#888880' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#0a0a08' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1a18' }] },
-    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2a2a26' }] },
-    { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#0a0a08' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1a2a' }] },
-    { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#151512' }] },
-    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#0d1a0d' }] },
-    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#2a2a26' }] },
-    { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#111110' }] },
+    {featureType:'all',elementType:'geometry',stylers:[{saturation:-15},{lightness:10}]},
+    {featureType:'road',elementType:'geometry',stylers:[{color:'#ffffff'}]},
+    {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#e0d8cc'}]},
+    {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#f5e9c8'}]},
+    {featureType:'road.highway',elementType:'geometry.stroke',stylers:[{color:'#dbc97a'}]},
+    {featureType:'water',elementType:'geometry',stylers:[{color:'#aecde0'}]},
+    {featureType:'landscape',elementType:'geometry',stylers:[{color:'#eee8de'}]},
+    {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#d4e8c4'}]},
+    {featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]},
+    {featureType:'transit',stylers:[{visibility:'off'}]},
+    {featureType:'administrative',elementType:'geometry.stroke',stylers:[{color:'#c4bdb0'}]},
+    {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#666'}]},
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v1.1.0</div>
+  <div class="version-stamp">WAYPOINT v1.2.0</div>
 </body>
 </html>
