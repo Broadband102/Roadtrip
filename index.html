@@ -1184,7 +1184,8 @@ async function callGemini(apiKey, prompt) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.8, maxOutputTokens: 8192 }
+        generationConfig: { temperature: 0.8, maxOutputTokens: 16000 },
+        thinkingConfig: { thinkingBudget: 0 }
       })
     });
     if (r.ok) { data = await r.json(); break; }
@@ -1513,6 +1514,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.5.0</div>
+  <div class="version-stamp">WAYPOINT v0.6.0</div>
 </body>
 </html>
