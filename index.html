@@ -998,7 +998,7 @@ async function generateSurprise() {
   const interests  = [...document.querySelectorAll('#s-interests input:checked')].map(c => c.value);
   const notes      = document.getElementById('s-notes').value.trim();
   const roundTrip  = document.getElementById('s-roundtrip').checked;
-  const nightsDest = Number(document.getElementById('s-nightsDest').value || 0);
+  const nightsDest = Number(document.getElementById('s-nightsDest')?.value || 0);
   const geminiKey  = getKey('gemini');
   const mapsKey    = getKey('maps');
 
@@ -1038,7 +1038,7 @@ async function generateSurprise() {
 function buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip }) {
   const BUFFER_HRS = 1.4;
   const effectiveDriveHrs = (driveHours - BUFFER_HRS).toFixed(1);
-  const travelDays = days - nightsDest;
+  const travelDays = days - (nightsDest || 0);
   const outDays = roundTrip ? Math.floor(travelDays / 2) : travelDays;
   const rtNote = roundTrip
     ? `- ROUND TRIP: ~${outDays} days out, ${nightsDest} night(s) at destination, ~${Math.ceil(travelDays/2)} days back to ${homebase}.`
@@ -1108,8 +1108,20 @@ async function buildSelectedTrip() {
   showThinking('s', `Planning day-by-day stops for "${selectedIdea.title}"...`);
 
   try {
-    const prompt = buildSurpriseItineraryPrompt(p, selectedIdea);
-    const itinerary = await callGemini(geminiKey, prompt);
+    let itinerary;
+    if (p.roundTrip) {
+      itinerary = await callGeminiRoundTrip(geminiKey, p.homebase, selectedIdea.destination, {
+        driveHours: p.driveHours,
+        tripDays: p.days,
+        nightsDest: p.nightsDest || 0,
+        interests: p.interests,
+        notes: p.notes,
+        departDate: '',
+      });
+    } else {
+      const prompt = buildSurpriseItineraryPrompt(p, selectedIdea);
+      itinerary = await callGemini(geminiKey, prompt);
+    }
     hideThinking('s');
     currentStops = itinerary.stops;
     renderStops('s-stopsList', itinerary.stops);
@@ -1129,13 +1141,13 @@ async function buildSelectedTrip() {
 function buildSurpriseItineraryPrompt(params, idea) {
   const BUFFER_HRS  = 1.4;
   const effectiveDriveHrs = (params.driveHours - BUFFER_HRS).toFixed(1);
-  const travelDays  = params.days - params.nightsDest;
+  const travelDays  = params.days - (params.nightsDest || 0);
   const outDays     = params.roundTrip ? Math.floor(travelDays / 2) : travelDays;
   const returnDays  = params.roundTrip ? Math.ceil(travelDays / 2) : 0;
   const rtNote = params.roundTrip
-    ? `- ROUND TRIP: ${outDays} outbound driving days to reach ${idea.destination}, ${params.nightsDest} night(s) there, ${returnDays} return driving days back to ${params.homebase}. Take different roads back where possible.
+    ? `- ROUND TRIP: ${outDays} outbound driving days to reach ${idea.destination}, ${params.nightsDest||0} night(s) there, ${returnDays} return driving days back to ${params.homebase}. Take different roads back where possible.
 - Final stop = ${params.homebase}`
-    : `- ONE-WAY: ${outDays} driving days to ${idea.destination}, ${params.nightsDest} night(s) at destination.`;
+    : `- ONE-WAY: ${outDays} driving days to ${idea.destination}, ${params.nightsDest||0} night(s) at destination.`;
 
   const minStops = outDays + returnDays + (params.nightsDest > 0 ? 1 : 0);
   return `Road trip planner. JSON only, no markdown.
@@ -1583,6 +1595,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.7.0</div>
+  <div class="version-stamp">WAYPOINT v0.7.1</div>
 </body>
 </html>
