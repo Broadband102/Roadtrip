@@ -948,7 +948,7 @@ async function generateRoute() {
       itinerary = await callGemini(geminiKey, prompt);
     }
     hideThinking('r');
-    currentStops = recalculateTiming(itinerary.stops);
+    currentStops = recalculateTiming(normalizeStops(itinerary.stops, origin));
     renderStops('r-stopsList', itinerary.stops);
     document.getElementById('r-stopsContainer').style.display = 'block';
     await renderMap(itinerary.stops);
@@ -1123,7 +1123,7 @@ async function buildSelectedTrip() {
       itinerary = await callGemini(geminiKey, prompt);
     }
     hideThinking('s');
-    currentStops = recalculateTiming(itinerary.stops);
+    currentStops = recalculateTiming(normalizeStops(itinerary.stops, p.homebase));
     renderStops('s-stopsList', itinerary.stops);
     document.getElementById('s-stopsContainer').style.display = 'block';
     await renderMap(itinerary.stops);
@@ -1370,56 +1370,92 @@ function robustParseJSON(raw) {
 
 // ── RENDER STOPS ──────────────────────────────────────────────────
 
+
+// ── STOP NORMALIZER ───────────────────────────────────────────────
+// Ensures stops always start at day 1 with the correct origin city
+function normalizeStops(stops, originCity) {
+  if (!stops || stops.length === 0) return stops;
+
+  // Fix 1: If first stop isn't day 1, re-number all days from 1
+  const dayOffset = stops[0].day - 1;
+  if (dayOffset !== 0) {
+    stops.forEach(s => s.day = s.day - dayOffset);
+  }
+
+  // Fix 2: If first stop isn't the origin city, prepend it
+  const firstName = (stops[0].name || '').toLowerCase();
+  const originLower = (originCity || '').toLowerCase().split(',')[0].trim();
+  if (originCity && !firstName.includes(originLower) && !originLower.includes(firstName)) {
+    stops.unshift({
+      day: 1, order: 0, type: 'origin', stopType: 'origin',
+      name: originCity, location: originCity, address: originCity,
+      description: 'Your starting point. Depart 08:00.',
+      highlight: 'Start of your adventure',
+      distFromPrev: '0 miles', driveFromPrev: '0 min',
+      departTime: '08:00', arrivalTime: '',
+    });
+    // Re-number orders
+    stops.forEach((s, i) => s.order = i + 1);
+  }
+
+  return stops;
+}
+
 // ── TIMING RECALCULATOR ───────────────────────────────────────────
 // Calculates accurate departure/arrival times from distFromPrev miles
 function recalculateTiming(stops) {
-  const AVG_MPH     = 55;   // realistic avg incl. towns, signals, slowing
-  const START_MINS  = 8*60; // 08:00 each driving day
+  const AVG_MPH    = 55;   // realistic avg incl. towns, signals, slowing
+  const START_MINS = 8*60; // 08:00 departure each driving day
 
-  // Time spent at each stop type before moving on (minutes)
+  // Minutes spent AT a stop before departing
   const DWELL = {
     'origin': 0, 'brief': 30, 'activity': 90,
-    'overnight': 0, 'destination': 0, 'destination-overnight': 0,
+    'overnight': 0, 'destination': 60, 'destination-overnight': 0,
   };
 
   let clockMins = START_MINS;
   let lastDay   = -1;
 
   stops.forEach((stop, i) => {
-    const isFirstStop = i === 0;
-
-    // Reset clock at start of each new day
+    // Reset clock to 08:00 at start of each new driving day
     if (stop.day !== lastDay) {
       lastDay   = stop.day;
       clockMins = START_MINS;
     }
 
-    // Parse miles driven to reach this stop
+    // Parse miles from distFromPrev field
     const m = (stop.distFromPrev || '').match(/(\d+(?:\.\d+)?)/);
     const miles = m ? parseFloat(m[1]) : 0;
     const driveMin = miles > 0 ? Math.round((miles / AVG_MPH) * 60) : 0;
 
-    if (isFirstStop || miles === 0) {
-      // Origin or destination-rest day: no driving
-      stop.departTime  = '08:00';
-      stop.arrivalTime = isFirstStop ? '' : '—';
-      stop.driveFromPrev = isFirstStop ? '0 min' : stop.driveFromPrev;
+    if (i === 0) {
+      // Very first stop = origin, departs at 08:00, no arrival shown
+      stop.arrivalTime   = '';
+      stop.departTime    = '08:00';
+      stop.driveFromPrev = '0 min';
+      // clock stays at START_MINS (08:00)
+    } else if (miles === 0) {
+      // Rest day at destination — no driving, show as full day
+      stop.arrivalTime   = '—';
+      stop.departTime    = '08:00';
     } else {
-      // Arrived after driving driveMin from last clock position
-      const arrivalMins = clockMins + driveMin;
-      stop.arrivalTime  = minsToTime(arrivalMins);
+      // Driving stop: arrive = clock + drive time
+      const arrivalMins  = clockMins + driveMin;
+      stop.arrivalTime   = minsToTime(arrivalMins);
 
-      // Depart after dwelling at this stop
-      const dwell = DWELL[stop.stopType] ?? 60;
-      const departMins = arrivalMins + dwell;
-      stop.departTime = minsToTime(departMins);
+      // Depart = arrive + dwell time at this stop
+      const dwell        = (DWELL[stop.stopType] !== undefined) ? DWELL[stop.stopType] : 60;
+      const departMins   = arrivalMins + dwell;
+      stop.departTime    = dwell > 0 ? minsToTime(departMins) : stop.arrivalTime;
+
+      // Advance clock to when we leave this stop
       clockMins = departMins;
 
-      // Pretty-print drive time
+      // Pretty drive time label
       const dh = Math.floor(driveMin / 60);
       const dm = driveMin % 60;
       stop.driveFromPrev = dh > 0
-        ? dh + 'h ' + (dm > 0 ? dm + 'm' : '').trim()
+        ? dh + 'h' + (dm > 0 ? ' ' + dm + 'm' : '')
         : dm + ' min';
     }
   });
@@ -1659,6 +1695,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.8.1</div>
+  <div class="version-stamp">WAYPOINT v0.8.2</div>
 </body>
 </html>
