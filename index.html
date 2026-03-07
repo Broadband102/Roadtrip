@@ -33,15 +33,15 @@
   html, body { width:100%; height:100%; overflow:hidden; font-family:'Outfit',sans-serif; }
 
   /* ── FULL-SCREEN MAP ── */
-  #map { position:fixed; inset:0; z-index:0; }
+  #map { position:fixed; inset:0; z-index:1; }
   .map-placeholder {
-    position:fixed; inset:0; z-index:1;
+    position:fixed; inset:0; z-index:2;
     display:flex; flex-direction:column;
     align-items:center; justify-content:center;
     background: linear-gradient(160deg,#f7f5f0 0%,#ede8df 100%);
-    pointer-events:none; transition:opacity .4s;
+    pointer-events:none; transition:opacity .5s;
   }
-  .map-placeholder.hidden { opacity:0; }
+  .map-placeholder.hidden { opacity:0; pointer-events:none; }
   .map-placeholder h2 {
     font-family:'Bebas Neue',sans-serif;
     font-size:64px; letter-spacing:8px;
@@ -59,7 +59,7 @@
     background: rgba(28,25,23,.96);
     backdrop-filter: blur(12px);
     display:flex; align-items:center; justify-content:space-between;
-    padding:0 20px; z-index:100;
+    padding:0 20px; z-index:200;
     border-bottom: 1px solid rgba(255,255,255,.06);
   }
   .logo {
@@ -83,7 +83,7 @@
   /* ── BOTTOM DRAWER (trip configurator) ── */
   .bottom-drawer {
     position:fixed; bottom:0; left:0; right:0;
-    z-index:50; transition: transform .35s cubic-bezier(.4,0,.2,1);
+    z-index:150; transition: transform .35s cubic-bezier(.4,0,.2,1);
   }
   .bottom-drawer.collapsed { transform: translateY(calc(100% - 52px)); }
 
@@ -227,7 +227,7 @@
   /* ── LEFT PANEL (itinerary) ── */
   .left-panel {
     position:fixed; top:48px; left:0; bottom:52px;
-    width:320px; z-index:40;
+    width:320px; z-index:140;
     transform:translateX(-100%);
     transition:transform .35s cubic-bezier(.4,0,.2,1);
     display:flex; flex-direction:column;
@@ -523,7 +523,7 @@
     <div class="topbar-right">
       <span class="top-badge">GEMINI</span>
       <span class="top-badge">GOOGLE MAPS</span>
-      <span class="version-stamp">WAYPOINT v1.5.0</span>
+      <span class="version-stamp">WAYPOINT v1.5.1</span>
     </div>
   </div>
 
@@ -1025,6 +1025,10 @@ function loadGoogleMaps(apiKey) {
 
 window.initMap = function() {
   mapsLoaded = true;
+  // Hide placeholder as soon as map is ready
+  const ph = document.getElementById('mapPlaceholder');
+  if (ph) ph.classList.add('hidden');
+
   map = new google.maps.Map(document.getElementById('map'), {
     center: { lat: 39.5, lng: -98.35 },
     zoom: 4,
@@ -1964,6 +1968,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v1.5.0</div>
+  <div class="version-stamp">WAYPOINT v1.5.1</div>
 </body>
 </html>
