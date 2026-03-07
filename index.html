@@ -1151,32 +1151,51 @@ function robustParseJSON(raw) {
   // Strip markdown fences
   let clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 
-  // Try straight parse first
-  try { return JSON.parse(clean); } catch(e1) {}
-
   // Extract outermost JSON object
   const start = clean.indexOf('{');
   const end   = clean.lastIndexOf('}');
-  if (start !== -1 && end !== -1) {
-    clean = clean.slice(start, end + 1);
-    try { return JSON.parse(clean); } catch(e2) {}
+  if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
+
+  // Try straight parse first
+  try { return JSON.parse(clean); } catch(e1) {}
+
+  // Fix unescaped newlines/tabs INSIDE string values only
+  // Walk char by char, tracking whether we're inside a string
+  function fixJSON(str) {
+    let result = '';
+    let inString = false;
+    let i = 0;
+    while (i < str.length) {
+      const ch = str[i];
+      if (ch === '\\' && inString) {
+        // already escaped — keep both chars
+        result += ch + (str[i+1] || '');
+        i += 2;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        result += ch;
+        i++;
+        continue;
+      }
+      if (inString) {
+        if (ch === '\n') { result += '\\n'; i++; continue; }
+        if (ch === '\r') { result += '\\r'; i++; continue; }
+        if (ch === '\t') { result += '\\t'; i++; continue; }
+      }
+      result += ch;
+      i++;
+    }
+    // Also remove trailing commas
+    return result.replace(/,\s*([}\]])/g, '$1');
   }
 
-  // Fix common Gemini issues: trailing commas, unescaped quotes in strings, newlines in strings
-  let fixed = clean
-    .replace(/,\s*([}\]])/g, '$1')          // trailing commas
-    .replace(/([^\\])\n/g, '$1\\n')        // bare newlines inside strings
-    .replace(/\t/g, '\\t');                  // bare tabs
+  try { return JSON.parse(fixJSON(clean)); } catch(e2) {}
 
-  try { return JSON.parse(fixed); } catch(e3) {}
-
-  // Last resort: use Function constructor (handles more edge cases)
-  try {
-    return (new Function('return (' + fixed + ')'))();
-  } catch(e4) {
-    console.error('Raw Gemini response:', raw);
-    throw new Error('Could not parse Gemini response. Raw output logged to console.');
-  }
+  // Last resort: tell Gemini to fix its own output
+  console.error('Raw Gemini response:', raw);
+  throw new Error('Could not parse Gemini response. Try again — Gemini occasionally produces malformed JSON.');
 }
 
 // ── RENDER STOPS ──────────────────────────────────────────────────
