@@ -939,8 +939,14 @@ async function generateRoute() {
   showThinking('r', 'Analyzing the drive, calculating stop timing, picking locations that match your interests...');
 
   try {
-    const prompt = buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip, nightsDest });
-    const itinerary = await callGemini(geminiKey, prompt);
+    let itinerary;
+    if (roundTrip) {
+      itinerary = await callGeminiRoundTrip(geminiKey, origin, destination,
+        { driveHours, tripDays, nightsDest, interests, notes, departDate });
+    } else {
+      const prompt = buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip, nightsDest });
+      itinerary = await callGemini(geminiKey, prompt);
+    }
     hideThinking('r');
     currentStops = itinerary.stops;
     renderStops('r-stopsList', itinerary.stops);
@@ -1159,6 +1165,70 @@ async function regenerateSurprise() {
 // ══════════════════════════════════════════════════════════════════
 // ── GEMINI API ────────────────────────────────────────────────────
 // ══════════════════════════════════════════════════════════════════
+// ── ROUND TRIP SPLITTER ───────────────────────────────────────────
+async function callGeminiRoundTrip(apiKey, origin, destination, params) {
+  const { driveHours, tripDays, nightsDest, interests, notes, departDate } = params;
+  const eff = (driveHours - 1.4).toFixed(1);
+  const travelDays = tripDays - nightsDest;
+  const outDays = Math.floor(travelDays / 2);
+  const retDays = Math.ceil(travelDays / 2);
+
+  const outPrompt = `Road trip planner. JSON only, no markdown.
+OUTBOUND LEG. FROM: ${origin} TO: ${destination}. DAYS: ${outDays}. NET DRIVE/DAY: ${eff}h. DEPART 08:00 daily. INTERESTS: ${interests.join(',')||'general'}. NOTES: ${notes||'none'}.
+MUST reach ${destination}. Use full ${eff}h/day. Overnights in real towns. Include ${outDays+1} to ${outDays*2+2} stops.
+JSON: {"totalMiles":0,"totalDriveHours":0,"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"Depart 08:00...","stopType":"origin","departTime":"08:00","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
+stopType: origin|overnight|destination|activity|brief. Last stop type=destination at ${destination}.`;
+
+  const retPrompt = `Road trip planner. JSON only, no markdown.
+RETURN LEG. FROM: ${destination} BACK TO: ${origin}. DAYS: ${retDays}. NET DRIVE/DAY: ${eff}h. DEPART 08:00 daily. INTERESTS: ${interests.join(',')||'general'}.
+MUST return to ${origin}. Use different roads than outbound. Include ${retDays+1} to ${retDays*2+2} stops.
+JSON: {"totalMiles":0,"totalDriveHours":0,"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"Depart 08:00...","stopType":"overnight","departTime":"08:00","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
+stopType: overnight|activity|brief|destination. Last stop type=destination at ${origin}.`;
+
+  setStatus('Planning outbound leg to ' + destination + '...', 'loading');
+  const outResult = await callGemini(apiKey, outPrompt);
+  setStatus('Planning return leg back to ' + origin + '...', 'loading');
+  const retResult = await callGemini(apiKey, retPrompt);
+
+  const outStops = outResult.stops || [];
+
+  // Inject destination night stops
+  const destStops = [];
+  if (nightsDest > 0) {
+    const lastOut = outStops[outStops.length - 1];
+    for (let n = 1; n <= nightsDest; n++) {
+      destStops.push({
+        day: outDays + n, order: outStops.length + n,
+        type: 'waypoint', stopType: 'destination-overnight',
+        name: lastOut?.name || destination,
+        location: lastOut?.location || destination,
+        address: lastOut?.address || destination,
+        description: 'Day ' + n + ' at ' + destination + '. Enjoy local beaches and attractions.',
+        highlight: 'Explore and relax at destination',
+        duration: 'full day', driveFromPrev: '0 min', distFromPrev: '0 miles',
+        departTime: '—', arrivalTime: '—',
+      });
+    }
+  }
+
+  const retStops = (retResult.stops || []).map((s, i) => ({
+    ...s,
+    day: outDays + nightsDest + s.day,
+    order: outStops.length + destStops.length + i + 1,
+  }));
+
+  const allStops = [...outStops, ...destStops, ...retStops];
+  if (allStops.length > 0) allStops[allStops.length - 1].type = 'destination';
+
+  return {
+    summary: outResult.summary || (origin + ' → ' + destination + ' → ' + origin),
+    totalMiles: (outResult.totalMiles || 0) + (retResult.totalMiles || 0),
+    totalDriveHours: (outResult.totalDriveHours || 0) + (retResult.totalDriveHours || 0),
+    daysBreakdown: outDays + 'd out / ' + nightsDest + 'n at ' + destination + ' / ' + retDays + 'd back',
+    stops: allStops,
+  };
+}
+
 async function callGemini(apiKey, prompt) {
   // Discover available models first
   let availableModels = [];
@@ -1184,8 +1254,7 @@ async function callGemini(apiKey, prompt) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.8, maxOutputTokens: 16000 },
-        thinkingConfig: { thinkingBudget: 0 }
+        generationConfig: { temperature: 0.8, maxOutputTokens: 16000 }
       })
     });
     if (r.ok) { data = await r.json(); break; }
@@ -1514,6 +1583,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v0.6.0</div>
+  <div class="version-stamp">WAYPOINT v0.7.0</div>
 </body>
 </html>
