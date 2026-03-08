@@ -493,17 +493,13 @@
   <!-- KEY SETUP SCREEN -->
   <div id="keySetup" class="hidden">
     <div class="setup-box">
-      <div class="setup-title">ONE MORE THING</div>
-      <p class="setup-sub">WAYPOINT needs your personal Gemini API key to plan trips. It's free and takes 30 seconds.</p>
-      <div class="setup-steps">
-        <span>1.</span> Go to <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#d97706">aistudio.google.com/apikey</a><br>
-        <span>2.</span> Click <b style="color:#aaa">Create API key</b><br>
-        <span>3.</span> Copy and paste it below
-      </div>
+      <div class="setup-title" id="setupTitle">ONE MORE THING</div>
+      <p class="setup-sub" id="setupSub"></p>
+      <div class="setup-steps" id="setupSteps"></div>
       <input class="setup-field" type="password" id="setupKeyInput"
         placeholder="AIzaSy..."
         onkeydown="if(event.key==='Enter') saveAndContinue()" />
-      <button class="setup-btn" onclick="saveAndContinue()">SAVE & START PLANNING</button>
+      <button class="setup-btn" onclick="saveAndContinue()">SAVE & CONTINUE</button>
       <div class="setup-error" id="setupError"></div>
     </div>
   </div>
@@ -523,7 +519,7 @@
     <div class="topbar-right">
       <span class="top-badge">GEMINI</span>
       <span class="top-badge">GOOGLE MAPS</span>
-      <span class="version-stamp">WAYPOINT v1.5.2</span>
+      <span class="version-stamp">WAYPOINT v1.6.0</span>
     </div>
   </div>
 
@@ -832,18 +828,15 @@ function tryLogin() {
     sessionStorage.setItem('wp_user', user);
     document.getElementById('loginGate').classList.add('hidden');
     errEl.textContent = '';
-    // Show key setup if no Gemini key saved yet
-    if (!hasGeminiKey()) {
-      showKeySetup();
+    // Show key setup if keys are missing (Maps first, then Gemini)
+    if (!hasMapsKey()) {
+      showKeySetup('maps');
+    } else if (!hasGeminiKey()) {
+      showKeySetup('gemini');
     } else {
+      loadGoogleMaps(getKey('maps'));
       openDrawer();
     }
-    // Trigger map resize so tiles load after login gate hides
-    setTimeout(() => {
-      if (typeof map !== 'undefined' && map) {
-        google.maps.event.trigger(map, 'resize');
-      }
-    }, 300);
   } else {
     errEl.textContent = 'Invalid username or password';
     document.getElementById('loginPass').value = '';
@@ -854,8 +847,12 @@ function tryLogin() {
 function checkAuth() {
   if (sessionStorage.getItem('wp_auth') === 'ok') {
     document.getElementById('loginGate').classList.add('hidden');
-    if (!hasGeminiKey()) {
-      showKeySetup();
+    if (!hasMapsKey()) {
+      showKeySetup('maps');
+    } else if (!hasGeminiKey()) {
+      showKeySetup('gemini');
+    } else {
+      loadGoogleMaps(getKey('maps'));
     }
     return true;
   }
@@ -865,14 +862,67 @@ function checkAuth() {
 
 
 // ── KEY SETUP ────────────────────────────────────────────────────────
-function showKeySetup() {
+let _setupKeyType = 'maps';  // which key we're currently collecting
+
+const KEY_CONFIG = {
+  maps: {
+    title: 'GOOGLE MAPS KEY',
+    sub: 'WAYPOINT needs a Google Maps API key to show the map and calculate routes.',
+    steps: `<span>1.</span> Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#d97706">console.cloud.google.com/apis/credentials</a><br>
+            <span>2.</span> Click <b style="color:#aaa">Create credentials → API key</b><br>
+            <span>3.</span> Copy and paste it below`,
+    placeholder: 'AIzaSy...',
+    verify: async (key) => {
+      // Maps keys can't be easily verified without a DOM — just save it
+      return { ok: true };
+    },
+    onSave: (key) => {
+      saveKey('maps', key);
+      loadGoogleMaps(key);
+    },
+    next: () => !hasGeminiKey() ? showKeySetup('gemini') : (openDrawer(), null)
+  },
+  gemini: {
+    title: 'GEMINI API KEY',
+    sub: "WAYPOINT needs your Gemini API key to plan trips with AI. It's free.",
+    steps: `<span>1.</span> Go to <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#d97706">aistudio.google.com/apikey</a><br>
+            <span>2.</span> Click <b style="color:#aaa">Create API key</b><br>
+            <span>3.</span> Copy and paste it below`,
+    placeholder: 'AIzaSy...',
+    verify: async (key) => {
+      const r = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key,
+        { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ contents:[{parts:[{text:'Hi'}]}], generationConfig:{maxOutputTokens:5} }) }
+      );
+      if (r.status === 403 || r.status === 401) {
+        const d = await r.json();
+        return { ok: false, msg: d.error?.message || 'Key rejected.' };
+      }
+      return { ok: true };
+    },
+    onSave: (key) => saveGeminiKey(key),
+    next: () => openDrawer()
+  }
+};
+
+function showKeySetup(type = 'maps') {
+  _setupKeyType = type;
+  const cfg = KEY_CONFIG[type];
+  document.getElementById('setupTitle').textContent = cfg.title;
+  document.getElementById('setupSub').textContent = cfg.sub;
+  document.getElementById('setupSteps').innerHTML = cfg.steps;
+  document.getElementById('setupKeyInput').placeholder = cfg.placeholder;
+  document.getElementById('setupKeyInput').value = '';
+  document.getElementById('setupError').textContent = '';
   document.getElementById('keySetup').classList.remove('hidden');
 }
+
 function hideKeySetup() {
   document.getElementById('keySetup').classList.add('hidden');
   setTimeout(() => {
     if (typeof map !== 'undefined' && map) google.maps.event.trigger(map, 'resize');
-  }, 300);
+  }, 400);
 }
 
 async function saveAndContinue() {
@@ -882,33 +932,25 @@ async function saveAndContinue() {
     errEl.textContent = 'Please enter a valid API key (starts with AIza...)';
     return;
   }
-  errEl.textContent = '';
-  // Quick test — verify key actually works
+  const cfg = KEY_CONFIG[_setupKeyType];
   errEl.style.color = '#d97706';
-  errEl.textContent = 'Verifying key...';
+  errEl.textContent = 'Saving...';
   try {
-    const r = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key,
-      { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ contents:[{parts:[{text:'Hi'}]}], generationConfig:{maxOutputTokens:5} }) }
-    );
-    if (r.status === 403 || r.status === 401) {
-      const d = await r.json();
+    const result = await cfg.verify(key);
+    if (!result.ok) {
       errEl.style.color = '#f87171';
-      errEl.textContent = d.error?.message || 'Key rejected — check it and try again.';
+      errEl.textContent = result.msg || 'Key rejected — check it and try again.';
       return;
     }
-    // 404 is ok — model might not exist but key is valid
-    saveGeminiKey(key);
+    cfg.onSave(key);
     hideKeySetup();
-    openDrawer();
-    errEl.style.color = '#f87171';
     errEl.textContent = '';
+    cfg.next();
   } catch(e) {
-    // Network error — save anyway and let them try
-    saveGeminiKey(key);
+    // Network error — save anyway
+    cfg.onSave(key);
     hideKeySetup();
-    openDrawer();
+    cfg.next();
   }
 }
 
@@ -947,9 +989,7 @@ function showItineraryPanel(stopsList) {
 
 // ── INIT ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  // Always pre-load Maps so it's ready when login completes
-  loadGoogleMaps(getKey('maps'));
-  // Check if already authenticated this session
+  // Check if already authenticated this session (loads maps if keys present)
   checkAuth();
   // Open drawer by default so user sees controls
   openDrawer();
@@ -1910,20 +1950,21 @@ function exportItinerary() {
 
 // ── HELPERS ───────────────────────────────────────────────────────
 function getKey(type) {
-  if (type === 'maps') return 'AIzaSyDt-6AmRDkqYyMQieZNk88xuAXBlO2vSEg';
-  // Gemini key stored per-user in localStorage
   const user = sessionStorage.getItem('wp_user') || 'default';
-  return localStorage.getItem('wp_gemini_' + user) || '';
+  if (type === 'maps')   return localStorage.getItem('wp_maps_' + user) || '';
+  if (type === 'gemini') return localStorage.getItem('wp_gemini_' + user) || '';
+  return '';
 }
 
-function saveGeminiKey(key) {
+function saveKey(type, key) {
   const user = sessionStorage.getItem('wp_user') || 'default';
-  localStorage.setItem('wp_gemini_' + user, key.trim());
+  localStorage.setItem('wp_' + type + '_' + user, key.trim());
 }
 
-function hasGeminiKey() {
-  return !!getKey('gemini');
-}
+function saveGeminiKey(key) { saveKey('gemini', key); }  // backwards compat
+
+function hasGeminiKey() { return !!getKey('gemini'); }
+function hasMapsKey()   { return !!getKey('maps'); }
 
 function setStatus(msg, state) {
   const t = document.getElementById('statusText');
@@ -1964,6 +2005,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v1.5.2</div>
+  <div class="version-stamp">WAYPOINT v1.6.0</div>
 </body>
 </html>
