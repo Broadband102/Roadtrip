@@ -519,7 +519,7 @@
     <div class="topbar-right">
       <span class="top-badge">GEMINI</span>
       <span class="top-badge">GOOGLE MAPS</span>
-      <span class="version-stamp">WAYPOINT v1.6.0</span>
+      <span class="version-stamp">WAYPOINT v1.6.2</span>
     </div>
   </div>
 
@@ -826,6 +826,7 @@ function tryLogin() {
   if (VALID_USERS[user] && VALID_USERS[user] === pass) {
     sessionStorage.setItem('wp_auth', 'ok');
     sessionStorage.setItem('wp_user', user);
+    localStorage.setItem('wp_last_user', user);  // persist across reloads
     document.getElementById('loginGate').classList.add('hidden');
     errEl.textContent = '';
     // Show key setup if keys are missing (Maps first, then Gemini)
@@ -846,6 +847,11 @@ function tryLogin() {
 
 function checkAuth() {
   if (sessionStorage.getItem('wp_auth') === 'ok') {
+    // Restore username from localStorage if sessionStorage was cleared
+    if (!sessionStorage.getItem('wp_user')) {
+      const lastUser = localStorage.getItem('wp_last_user');
+      if (lastUser) sessionStorage.setItem('wp_user', lastUser);
+    }
     document.getElementById('loginGate').classList.add('hidden');
     if (!hasMapsKey()) {
       showKeySetup('maps');
@@ -2005,6 +2011,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v1.6.0</div>
+  <div class="version-stamp">WAYPOINT v1.6.2</div>
 </body>
 </html>
