@@ -523,7 +523,7 @@
     <div class="topbar-right">
       <span class="top-badge">GEMINI</span>
       <span class="top-badge">GOOGLE MAPS</span>
-      <span class="version-stamp">WAYPOINT v1.5.1</span>
+      <span class="version-stamp">WAYPOINT v1.5.2</span>
     </div>
   </div>
 
@@ -832,8 +832,6 @@ function tryLogin() {
     sessionStorage.setItem('wp_user', user);
     document.getElementById('loginGate').classList.add('hidden');
     errEl.textContent = '';
-    const mk = getKey('maps');
-    if (mk) loadGoogleMaps(mk);
     // Show key setup if no Gemini key saved yet
     if (!hasGeminiKey()) {
       showKeySetup();
@@ -949,12 +947,10 @@ function showItineraryPanel(stopsList) {
 
 // ── INIT ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
+  // Always pre-load Maps so it's ready when login completes
+  loadGoogleMaps(getKey('maps'));
   // Check if already authenticated this session
   checkAuth();
-  // Maps loads after login (or immediately if already authed)
-  if (sessionStorage.getItem('wp_auth') === 'ok') {
-    loadGoogleMaps(getKey('maps'));
-  }
   // Open drawer by default so user sees controls
   openDrawer();
 
@@ -1968,6 +1964,6 @@ function darkMapStyle() {
   ];
 }
 </script>
-  <div class="version-stamp">WAYPOINT v1.5.1</div>
+  <div class="version-stamp">WAYPOINT v1.5.2</div>
 </body>
 </html>
