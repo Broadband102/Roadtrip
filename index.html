@@ -4,1975 +4,1368 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WAYPOINT — AI Road Trip Planner</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+/* ═══════════════════════════════════════════════════
+   WAYPOINT — Ground Zero Build
+   ═══════════════════════════════════════════════════ */
 
-  :root {
-    --bg:         #f4f1eb;
-    --surface:    #ffffff;
-    --surface2:   #f9f7f3;
-    --border:     #e2ddd6;
-    --border2:    #ccc8c0;
-    --text:       #1a1814;
-    --text2:      #5a5650;
-    --muted:      #9a958e;
-    --accent:     #c4952a;
-    --accent-bg:  #fdf3dc;
-    --accent-dark:#9a7420;
-    --success:    #2d7a3a;
-    --danger:     #c0392b;
-    --info:       #2563eb;
-    --shadow:     0 2px 12px rgba(0,0,0,.08);
-    --shadow-lg:  0 8px 32px rgba(0,0,0,.12);
-    --radius:     10px;
-  }
+:root {
+  --bg:         #f7f5f0;
+  --surface:    #ffffff;
+  --surface2:   #f2efe9;
+  --border:     #e4e0d8;
+  --border2:    #ccc8be;
+  --text:       #1c1a16;
+  --text2:      #5c5750;
+  --muted:      #9c9890;
+  --accent:     #b45309;
+  --accent-lt:  #fdf3dc;
+  --accent-dk:  #92400e;
+  --purple:     #6d28d9;
+  --purple-lt:  #ede9fe;
+  --success:    #166534;
+  --danger:     #991b1b;
+  --info:       #1d4ed8;
+  --shadow:     0 1px 8px rgba(0,0,0,.07);
+  --shadow-md:  0 4px 20px rgba(0,0,0,.10);
+  --shadow-lg:  0 8px 40px rgba(0,0,0,.14);
+  --r:          8px;
+}
 
-  * { margin:0; padding:0; box-sizing:border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
+html, body {
+  height: 100%;
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
 
-  /* ── TOPBAR ── */
-  .topbar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 24px; height: 52px;
-    background: var(--text);
-    flex-shrink: 0; z-index: 100;
-  }
-  .logo {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 26px; letter-spacing: 4px;
-    color: var(--accent); cursor: default;
-  }
-  .logo span { font-size: 9px; letter-spacing: 3px; color: #888; margin-left: 10px; vertical-align: middle; }
-  .topbar-right { display: flex; align-items: center; gap: 8px; }
-  .top-badge {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px; letter-spacing: 1px;
-    padding: 3px 8px; border-radius: 4px;
-    border: 1px solid #444; color: #666;
-  }
-  .version-stamp {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px; color: #444; letter-spacing: 1px;
-  }
+/* ── TOPBAR ─────────────────────────────────────── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 48px;
+  background: var(--text);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; z-index: 200;
+  border-bottom: 1px solid #2a2620;
+}
+.logo {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 24px; letter-spacing: 5px; color: var(--accent);
+  line-height: 1; cursor: default;
+}
+.topbar-badges { display: flex; align-items: center; gap: 8px; }
+.badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; letter-spacing: 2px; padding: 3px 7px;
+  border: 1px solid #383430; color: #605c58; border-radius: 3px;
+}
+.version {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; letter-spacing: 2px; color: #3a3630;
+}
 
-  /* ── LAYOUT ── */
-  .main-layout {
-    display: flex; flex: 1; overflow: hidden;
-  }
-  .sidebar {
-    width: 330px; flex-shrink: 0;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    overflow: hidden;
-  }
-  .sidebar-inner {
-    flex: 1; overflow-y: auto; padding: 16px;
-  }
-  .sidebar-inner::-webkit-scrollbar { width: 4px; }
-  .sidebar-inner::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
-  .map-area { flex: 1; position: relative; }
-  #map { width: 100%; height: 100%; }
+/* ── MAIN LAYOUT ────────────────────────────────── */
+#app {
+  display: flex; height: 100vh;
+  padding-top: 48px;
+}
 
-  /* ── MODE TABS ── */
-  .mode-tabs {
-    display: flex; border-bottom: 1px solid var(--border);
-    background: var(--surface2); flex-shrink: 0;
-  }
-  .mode-tab {
-    flex: 1; padding: 11px 8px;
-    font-size: 11px; letter-spacing: 2px;
-    font-family: 'DM Mono', monospace;
-    text-transform: uppercase; font-weight: 500;
-    border: none; background: transparent;
-    cursor: pointer; color: var(--muted);
-    border-bottom: 2px solid transparent;
-    transition: all .15s; margin-bottom: -1px;
-  }
-  .mode-tab.active-route {
-    color: var(--accent-dark);
-    border-bottom-color: var(--accent);
-    background: var(--surface);
-  }
-  .mode-tab.active-surprise {
-    color: #7c3aed;
-    border-bottom-color: #7c3aed;
-    background: var(--surface);
-  }
+/* ── SIDEBAR ─────────────────────────────────────── */
+#sidebar {
+  width: 320px; flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
 
-  /* ── PANELS ── */
-  .panel { display: none; }
-  .panel.active { display: block; }
+/* Mode tabs */
+.mode-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  flex-shrink: 0;
+}
+.mode-tab {
+  flex: 1; padding: 11px 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--muted); border-bottom: 2px solid transparent;
+  transition: all .15s; margin-bottom: -1px;
+}
+.mode-tab.route-active  { color: var(--accent-dk); border-bottom-color: var(--accent); background: var(--surface); }
+.mode-tab.surp-active   { color: var(--purple);    border-bottom-color: var(--purple); background: var(--surface); }
 
-  /* ── SECTION LABELS ── */
-  .section-label {
-    font-size: 9px; font-weight: 600; letter-spacing: 3px;
-    text-transform: uppercase; color: var(--muted);
-    margin: 14px 0 6px;
-  }
+/* Panels */
+.panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+.panel.active { display: flex; }
+.panel-scroll { flex: 1; overflow-y: auto; padding: 14px 16px; }
+.panel-scroll::-webkit-scrollbar { width: 4px; }
+.panel-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-  /* ── INPUTS ── */
-  input[type=text], input[type=number], textarea {
-    width: 100%; padding: 9px 12px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif; font-size: 13px;
-    outline: none; transition: border-color .15s;
-    margin-bottom: 6px; box-sizing: border-box;
-  }
-  input[type=text]:focus, input[type=number]:focus, textarea:focus {
-    border-color: var(--accent); background: #fff;
-  }
-  input::placeholder, textarea::placeholder { color: var(--muted); }
+/* Section labels */
+.slabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; font-weight: 500; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--muted);
+  margin: 12px 0 5px;
+}
+.slabel:first-child { margin-top: 2px; }
 
-  .input-label {
-    font-size: 9px; font-weight: 600; letter-spacing: 2px;
-    text-transform: uppercase; color: var(--text2);
-    margin-bottom: 3px; display: block;
-  }
-  .input-row { display: flex; gap: 8px; margin-bottom: 6px; }
-  .input-row > * { flex: 1; }
-  .input-row input { margin-bottom: 0; }
+/* Inputs */
+input[type=text], input[type=number], textarea, input[type=password] {
+  width: 100%; padding: 8px 11px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif; font-size: 13px;
+  outline: none; transition: border-color .15s;
+  margin-bottom: 5px;
+}
+input:focus, textarea:focus { border-color: var(--accent); background: #fff; }
+input::placeholder, textarea::placeholder { color: var(--muted); font-size: 12px; }
+textarea { resize: none; }
 
-  /* ── CHIPS ── */
-  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
-  .chip {
-    padding: 4px 10px; border-radius: 20px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    font-size: 11px; cursor: pointer;
-    transition: all .15s; color: var(--text2);
-    user-select: none; display: inline-flex; align-items: center; gap: 4px;
-  }
-  .chip input { display: none; }
-  .chip:hover { border-color: var(--accent); color: var(--accent-dark); }
-  .chip.active {
-    background: var(--accent-bg);
-    border-color: var(--accent);
-    color: var(--accent-dark);
-    font-weight: 500;
-  }
-  .chip.active-purple {
-    background: #ede9fe;
-    border-color: #7c3aed;
-    color: #5b21b6;
-    font-weight: 500;
-  }
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; }
+.row input { margin-bottom: 0; }
 
-  /* ── SLIDER ── */
-  .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .slider-row input[type=range] {
-    flex: 1; height: 4px; padding: 0; margin: 0;
-    background: var(--border); border: none; border-radius: 2px;
-    accent-color: var(--accent);
-  }
-  .slider-val {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px; font-weight: 500; color: var(--text2);
-    min-width: 52px; text-align: right;
-  }
+.ilabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text2); display: block; margin-bottom: 3px;
+}
 
-  /* ── DIR PILLS ── */
-  .dir-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
-  .dir-pill {
-    font-size: 11px; padding: 4px 10px;
-    border-radius: 20px; border: 1px solid var(--border);
-    background: var(--surface2); color: var(--text2);
-    cursor: pointer; transition: all .12s;
-  }
-  .dir-pill.active { background: #ede9fe; border-color: #7c3aed; color: #5b21b6; }
+/* Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 4px 9px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--surface2);
+  font-size: 11px; cursor: pointer; user-select: none;
+  color: var(--text2); transition: all .12s;
+}
+.chip input[type=checkbox] { display: none; }
+.chip:hover { border-color: var(--accent); color: var(--accent-dk); }
+.chip.on { background: var(--accent-lt); border-color: var(--accent); color: var(--accent-dk); font-weight: 500; }
+.chip.pon { background: var(--purple-lt); border-color: var(--purple); color: #5b21b6; font-weight: 500; }
 
-  /* ── BUTTONS ── */
-  .btn {
-    width: 100%; padding: 11px;
-    border: none; border-radius: var(--radius);
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 15px; letter-spacing: 3px;
-    cursor: pointer; transition: all .15s;
-    display: block;
-  }
-  .btn:disabled { opacity: .45; cursor: not-allowed; }
-  .btn-route {
-    background: var(--accent); color: #fff;
-    box-shadow: 0 2px 8px rgba(196,149,42,.3);
-  }
-  .btn-route:hover:not(:disabled) { background: var(--accent-dark); }
-  .btn-surprise {
-    background: #7c3aed; color: #fff;
-    box-shadow: 0 2px 8px rgba(124,58,237,.3);
-  }
-  .btn-surprise:hover:not(:disabled) { background: #6d28d9; }
-  .btn-ghost {
-    background: var(--surface2); color: var(--text2);
-    border: 1px solid var(--border);
-    font-family: 'DM Mono', monospace;
-    font-size: 10px; letter-spacing: 2px;
-    width: auto; padding: 7px 14px; display: inline-block;
-  }
-  .btn-ghost:hover:not(:disabled) { background: var(--border); color: var(--text); }
+/* Buttons */
+.btn {
+  width: 100%; padding: 10px; border: none; border-radius: var(--r);
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 3px;
+  cursor: pointer; transition: all .15s;
+}
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-amber { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(180,83,9,.25); }
+.btn-amber:hover:not(:disabled) { background: var(--accent-dk); }
+.btn-purple { background: var(--purple); color: #fff; box-shadow: 0 2px 8px rgba(109,40,217,.25); }
+.btn-purple:hover:not(:disabled) { background: #5b21b6; }
+.btn-ghost {
+  background: var(--surface2); color: var(--text2);
+  border: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 2px;
+  width: auto; padding: 7px 12px;
+}
+.btn-ghost:hover:not(:disabled) { background: var(--border); color: var(--text); }
 
-  /* ── THINKING BOX ── */
-  .thinking-box {
-    display: none; margin: 8px 0;
-    padding: 10px 12px;
-    background: var(--accent-bg);
-    border: 1px solid #e8d088;
-    border-radius: var(--radius);
-    font-size: 11px; color: var(--accent-dark);
-  }
-  .thinking-box.surprise { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
-  .think-label { font-weight: 600; margin-bottom: 3px; font-size: 11px; }
+/* Range slider */
+.range-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.range-row input[type=range] {
+  flex: 1; margin: 0; padding: 0; height: 3px;
+  border: none; background: var(--border); border-radius: 2px;
+  accent-color: var(--accent); margin-bottom: 0;
+}
+.range-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 500; color: var(--text2); min-width: 48px; text-align: right;
+}
 
-  /* ── STOP CARDS ── */
-  .stops-container { margin-top: 8px; }
-  .stop-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--border2);
-    border-radius: var(--radius);
-    padding: 9px 11px; margin-bottom: 6px;
-    box-shadow: var(--shadow);
-  }
-  .stop-card.origin      { border-left-color: var(--success); }
-  .stop-card.destination { border-left-color: var(--danger); }
-  .stop-card.overnight   { border-left-color: var(--info); }
-  .stop-card.activity    { border-left-color: var(--accent); }
-  .stop-card.brief       { border-left-color: var(--muted); }
+/* Dir pills */
+.dir-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.dpill {
+  font-size: 10px; padding: 4px 9px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--surface2);
+  color: var(--text2); cursor: pointer; transition: all .12s;
+}
+.dpill.pon { background: var(--purple-lt); border-color: var(--purple); color: #5b21b6; }
 
-  .day-header-label {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 13px; letter-spacing: 4px;
-    color: var(--muted); padding: 8px 0 3px;
-    border-top: 1px solid var(--border);
-    margin-top: 4px;
-  }
-  .day-header-label:first-child { border-top: none; margin-top: 0; }
+/* Thinking indicator */
+.thinking {
+  display: none; padding: 9px 11px; margin: 6px 0;
+  background: var(--accent-lt); border: 1px solid #e8c97a;
+  border-radius: var(--r); font-size: 11px; color: var(--accent-dk);
+}
+.thinking.purple { background: var(--purple-lt); border-color: #c4b5fd; color: #5b21b6; }
+.think-hd { font-weight: 600; font-size: 11px; margin-bottom: 2px; }
+.think-sub { font-size: 10px; opacity: .75; font-family: 'JetBrains Mono', monospace; }
 
-  .stop-num {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px; color: var(--muted); margin-bottom: 1px;
-  }
-  .stop-type-badge {
-    display: inline-block; font-size: 8px; font-weight: 700;
-    letter-spacing: 1.5px; text-transform: uppercase;
-    padding: 1px 6px; border-radius: 3px; margin-bottom: 3px;
-  }
-  .badge-origin      { background: #dcfce7; color: var(--success); }
-  .badge-destination { background: #fee2e2; color: var(--danger); }
-  .badge-overnight   { background: #dbeafe; color: var(--info); }
-  .badge-activity    { background: var(--accent-bg); color: var(--accent-dark); }
-  .badge-brief       { background: #f5f5f5; color: var(--muted); }
+/* Idea cards */
+.idea-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--r); padding: 11px; cursor: pointer;
+  transition: all .15s; margin-bottom: 6px;
+}
+.idea-card:hover { border-color: var(--purple); box-shadow: var(--shadow); }
+.idea-card.selected { border-color: var(--purple); background: #faf8ff; }
+.idea-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.idea-dest { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); }
+.idea-desc { font-size: 11px; color: var(--text2); margin-top: 5px; line-height: 1.45; }
 
-  .stop-name {
-    font-size: 13px; font-weight: 600;
-    color: var(--text); margin-bottom: 2px; line-height: 1.3;
-  }
-  .stop-times {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px; color: var(--text2); margin-bottom: 3px;
-  }
-  .stop-drive { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
-  .stop-desc { font-size: 11px; color: var(--text2); line-height: 1.5; }
-  .stop-highlight {
-    font-size: 10px; font-weight: 600;
-    color: var(--accent-dark); margin-top: 4px;
-  }
+/* Stop cards */
+.day-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 12px; letter-spacing: 4px; color: var(--muted);
+  padding: 8px 0 3px; border-top: 1px solid var(--border); margin-top: 4px;
+}
+.day-label:first-child { border-top: none; margin-top: 0; padding-top: 2px; }
+.stop-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--border2); border-radius: var(--r);
+  padding: 8px 10px; margin-bottom: 5px; box-shadow: var(--shadow);
+}
+.stop-card.t-origin      { border-left-color: #16a34a; }
+.stop-card.t-destination { border-left-color: #dc2626; }
+.stop-card.t-overnight   { border-left-color: var(--info); }
+.stop-card.t-activity    { border-left-color: var(--accent); }
+.stop-card.t-brief       { border-left-color: var(--muted); }
 
-  /* ── IDEA CARDS ── */
-  .idea-card {
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px; cursor: pointer;
-    transition: all .15s; margin-bottom: 8px;
-  }
-  .idea-card:hover { border-color: #7c3aed; box-shadow: var(--shadow); }
-  .idea-card.selected { border-color: #7c3aed; background: #faf5ff; }
-  .idea-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
-  .idea-dest { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; }
-  .idea-desc { font-size: 11px; color: var(--text2); margin-top: 5px; line-height: 1.45; }
+.stop-badge {
+  display: inline-block; font-family: 'JetBrains Mono', monospace;
+  font-size: 7px; letter-spacing: 1.5px; font-weight: 500;
+  text-transform: uppercase; padding: 1px 5px; border-radius: 3px; margin-bottom: 3px;
+}
+.b-origin      { background: #dcfce7; color: #166534; }
+.b-destination { background: #fee2e2; color: #991b1b; }
+.b-overnight   { background: #dbeafe; color: #1d4ed8; }
+.b-activity    { background: var(--accent-lt); color: var(--accent-dk); }
+.b-brief       { background: #f5f5f4; color: var(--muted); }
 
-  /* ── STAT BAR ── */
-  #tripSummary {
-    position: absolute; bottom: 16px; right: 16px;
-    display: none; gap: 1px; overflow: hidden;
-    border-radius: 10px;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--border);
-  }
-  .stat {
-    background: var(--surface);
-    padding: 10px 16px; text-align: center; min-width: 66px;
-  }
-  .stat + .stat { border-left: 1px solid var(--border); }
-  .stat-value {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px; color: var(--accent); line-height: 1;
-  }
-  .stat-label {
-    font-size: 8px; color: var(--muted);
-    letter-spacing: 2px; text-transform: uppercase; margin-top: 2px;
-  }
+.stop-name { font-size: 13px; font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
+.stop-times { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text2); margin-bottom: 2px; }
+.stop-drive { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+.stop-desc  { font-size: 11px; color: var(--text2); line-height: 1.5; }
+.stop-hl    { font-size: 10px; font-weight: 600; color: var(--accent-dk); margin-top: 3px; }
 
-  /* ── PANEL ACTIONS ── */
-  .panel-actions {
-    padding: 10px 16px;
-    border-top: 1px solid var(--border);
-    background: var(--surface2);
-    display: flex; gap: 6px; flex-shrink: 0;
-  }
+/* Sidebar bottom actions */
+#sidebar-actions {
+  display: none; padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface2); gap: 6px; flex-shrink: 0;
+}
 
-  /* ── STATUS BAR ── */
-  .status-bar {
-    padding: 6px 16px;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    font-size: 11px; color: var(--text2);
-    display: flex; align-items: center; gap: 6px;
-    flex-shrink: 0;
-  }
-  .sdot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--muted); flex-shrink: 0;
-  }
-  .sdot.success { background: var(--success); }
-  .sdot.error   { background: var(--danger); }
-  .sdot.loading { background: var(--accent); animation: pulse .8s ease-in-out infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+/* Status bar */
+#statusbar {
+  padding: 5px 14px; background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 7px; flex-shrink: 0;
+}
+#sdot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0;
+}
+#sdot.ok  { background: #16a34a; }
+#sdot.err { background: #dc2626; }
+#sdot.spin { background: var(--accent); animation: sdot-pulse .8s ease-in-out infinite; }
+@keyframes sdot-pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+#stext {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 1px; color: var(--text2);
+}
 
-  /* ── MAP PLACEHOLDER ── */
-  .map-placeholder {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    background: var(--bg); pointer-events: none;
-    transition: opacity .4s;
-  }
-  .map-placeholder.hidden { opacity: 0; }
-  .map-placeholder h2 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 52px; letter-spacing: 6px;
-    color: var(--border2); margin-bottom: 8px;
-  }
-  .map-placeholder p {
-    font-size: 12px; color: var(--muted);
-    letter-spacing: 2px; text-transform: uppercase;
-  }
+/* ── MAP AREA ────────────────────────────────────── */
+#map-area { flex: 1; position: relative; }
+#map { width: 100%; height: 100%; }
 
-  /* ── LOGIN / KEY SETUP GATE ── */
-  #loginGate, #keySetup {
-    position: fixed; inset: 0;
-    background: linear-gradient(135deg,#1c1917 0%,#292524 100%);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 9999;
-  }
-  #loginGate.hidden, #keySetup.hidden { display: none; }
-  .login-box, .setup-box {
-    background: #222; border: 1px solid #2a2a28;
-    border-radius: 18px; padding: 40px 48px;
-    text-align: center; max-width: 400px; width: 90%;
-    box-shadow: 0 24px 64px rgba(0,0,0,.5);
-  }
-  .login-logo, .setup-title {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 44px; color: var(--accent);
-    letter-spacing: 5px; line-height: 1; margin-bottom: 4px;
-  }
-  .setup-title { font-size: 28px; letter-spacing: 4px; }
-  .login-tagline, .setup-sub {
-    font-size: 10px; letter-spacing: 3px; color: #555;
-    text-transform: uppercase; margin-bottom: 28px;
-  }
-  .setup-sub { font-size: 12px; letter-spacing: 1px; text-transform: none; color: #888; line-height: 1.6; }
-  .login-field, .setup-field {
-    width: 100%; padding: 12px 16px; margin-bottom: 10px;
-    background: #1a1a1a; border: 1px solid #333;
-    border-radius: 10px; color: #e8e5e0;
-    font-family: 'DM Mono', monospace; font-size: 13px;
-    outline: none; box-sizing: border-box; transition: border .15s;
-  }
-  .login-field:focus, .setup-field:focus { border-color: var(--accent); }
-  .login-btn, .setup-btn {
-    width: 100%; padding: 13px; margin-top: 6px;
-    background: var(--accent); color: #fff; border: none;
-    border-radius: 10px; font-family: 'Bebas Neue', sans-serif;
-    font-size: 17px; letter-spacing: 4px; cursor: pointer;
-    transition: background .15s;
-  }
-  .login-btn:hover, .setup-btn:hover { background: var(--accent-dark); }
-  .login-error, .setup-error { color: #f87171; font-size: 11px; margin-top: 8px; min-height: 16px; }
-  .setup-steps { text-align: left; margin: 14px 0 18px; font-size: 11px; color: #666; line-height: 2; }
-  .setup-steps span { color: #aaa; }
-  .setup-link { font-size: 11px; color: var(--accent); margin-bottom: 20px; display: block; }
-  .setup-link a { color: var(--accent); }
+/* Map placeholder */
+#map-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg); pointer-events: none;
+  transition: opacity .4s;
+}
+#map-placeholder.gone { opacity: 0; }
+.mph1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 56px; letter-spacing: 8px;
+  color: var(--border2); line-height: 1;
+}
+.mph2 {
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--muted); margin-top: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
 
-  /* ── SCROLLBARS ── */
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-  ::-webkit-scrollbar-track { background: transparent; }
+/* Trip stat bar (over map) */
+#stat-bar {
+  position: absolute; bottom: 16px; right: 16px;
+  display: none; overflow: hidden; border-radius: 10px;
+  box-shadow: var(--shadow-lg); border: 1px solid var(--border);
+}
+.stat-wrap { display: flex; }
+.stat { background: var(--surface); padding: 10px 16px; text-align: center; min-width: 64px; }
+.stat + .stat { border-left: 1px solid var(--border); }
+.sv { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: var(--accent); line-height: 1; }
+.sl { font-family: 'JetBrains Mono', monospace; font-size: 7px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+
+/* ── LOGIN GATE ──────────────────────────────────── */
+#login-gate, #key-setup {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(145deg, #141210 0%, #1e1a16 50%, #141210 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+#login-gate.off, #key-setup.off { display: none; }
+
+.gate-box {
+  background: #1c1814; border: 1px solid #2a2520;
+  border-radius: 18px; padding: 40px 44px;
+  text-align: center; max-width: 380px; width: 90%;
+  box-shadow: 0 32px 80px rgba(0,0,0,.6);
+}
+.gate-logo { font-family: 'Bebas Neue', sans-serif; font-size: 48px; color: var(--accent); letter-spacing: 6px; line-height: 1; }
+.gate-sub  { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 4px; color: #4a4640; text-transform: uppercase; margin: 6px 0 28px; }
+.gate-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--accent); letter-spacing: 4px; line-height: 1; }
+.gate-desc  { font-size: 12px; color: #666; line-height: 1.7; margin: 8px 0 20px; }
+.gate-field {
+  width: 100%; padding: 12px 16px; margin-bottom: 10px;
+  background: #141210; border: 1px solid #2a2520;
+  border-radius: 10px; color: #e8e4de;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  outline: none; transition: border .15s; box-sizing: border-box;
+}
+.gate-field:focus { border-color: var(--accent); }
+.gate-btn {
+  width: 100%; padding: 13px; margin-top: 4px;
+  background: var(--accent); color: #fff; border: none;
+  border-radius: 10px; font-family: 'Bebas Neue', sans-serif;
+  font-size: 17px; letter-spacing: 4px; cursor: pointer;
+  transition: background .15s;
+}
+.gate-btn:hover { background: var(--accent-dk); }
+.gate-err { color: #f87171; font-size: 11px; margin-top: 8px; min-height: 16px; font-family: 'JetBrains Mono', monospace; }
+.gate-link { font-size: 11px; margin: 12px 0 4px; }
+.gate-link a { color: var(--accent); text-decoration: none; }
+.gate-link a:hover { text-decoration: underline; }
+.gate-steps { text-align: left; font-size: 11px; color: #555; line-height: 2; margin: 10px 0 16px; }
+.gate-steps span { color: #888; }
+
+/* ── UTILITIES ───────────────────────────────────── */
+.mt4  { margin-top: 4px; }
+.mt8  { margin-top: 8px; }
+.mt12 { margin-top: 12px; }
+.flex { display: flex; gap: 6px; }
+.flex > * { flex: 1; }
+.hidden { display: none !important; }
+
 </style>
 </head>
 <body>
 
-
-  <!-- LOGIN GATE -->
-  <div id="loginGate">
-    <div class="login-box">
-      <div class="login-logo">WAYPOINT</div>
-      <div class="login-tagline">AI Road Trip Planner</div>
-      <input class="login-field" type="text" id="loginUser" placeholder="Username" autocomplete="username" />
-      <input class="login-field" type="password" id="loginPass" placeholder="Password" autocomplete="current-password"
-        onkeydown="if(event.key==='Enter') tryLogin()" />
-      <button class="login-btn" onclick="tryLogin()">SIGN IN</button>
-      <div class="login-error" id="loginError"></div>
-    </div>
+<!-- ══ LOGIN GATE ══════════════════════════════════ -->
+<div id="login-gate">
+  <div class="gate-box">
+    <div class="gate-logo">WAYPOINT</div>
+    <div class="gate-sub">AI Road Trip Planner</div>
+    <input class="gate-field" type="text" id="lg-user" placeholder="Username" autocomplete="username" />
+    <input class="gate-field" type="password" id="lg-pass" placeholder="Password" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter') doLogin()" />
+    <button class="gate-btn" onclick="doLogin()">SIGN IN</button>
+    <div class="gate-err" id="lg-err"></div>
   </div>
+</div>
 
-  <!-- KEY SETUP SCREEN -->
-  <div id="keySetup" class="hidden">
-    <div class="setup-box">
-      <div class="setup-title">API KEY SETUP</div>
-      <p class="setup-sub" id="setupSubtext">WAYPOINT needs an API key to continue.</p>
-      <div class="setup-steps" id="setupSteps"></div>
-      <span class="setup-link" id="setupLink"></span>
-      <input class="setup-field" type="password" id="setupKeyInput" placeholder="AIzaSy..." 
-        onkeydown="if(event.key==='Enter') saveAndContinue()" />
-      <button class="setup-btn" onclick="saveAndContinue()">SAVE & CONTINUE</button>
-      <div class="setup-error" id="setupError"></div>
-    </div>
+<!-- ══ KEY SETUP ═══════════════════════════════════ -->
+<div id="key-setup" class="off">
+  <div class="gate-box">
+    <div class="gate-logo" style="font-size:32px;letter-spacing:3px">API KEY SETUP</div>
+    <p class="gate-desc" id="ks-desc"></p>
+    <div class="gate-steps" id="ks-steps"></div>
+    <div class="gate-link" id="ks-link"></div>
+    <input class="gate-field" type="password" id="ks-input" placeholder="Paste key here..."
+      onkeydown="if(event.key==='Enter') ksSave()" />
+    <button class="gate-btn" onclick="ksSave()">SAVE &amp; CONTINUE</button>
+    <div class="gate-err" id="ks-err"></div>
   </div>
+</div>
 
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div>
-      <span class="logo">WAYPOINT <span>AI ROAD TRIP PLANNER</span></span>
-    </div>
-    <div class="topbar-right">
-      <span class="top-badge">GEMINI</span>
-      <span class="top-badge">GOOGLE MAPS</span>
-      <span class="version-stamp">WAYPOINT v2.0.0</span>
-    </div>
+<!-- ══ TOPBAR ══════════════════════════════════════ -->
+<div id="topbar">
+  <div class="logo">WAYPOINT</div>
+  <div class="topbar-badges">
+    <span class="badge">GEMINI</span>
+    <span class="badge">GOOGLE MAPS</span>
+    <span class="version">v3.0.0</span>
   </div>
+</div>
 
-  <!-- MAIN LAYOUT -->
-  <div class="main-layout">
+<!-- ══ APP ════════════════════════════════════════ -->
+<div id="app">
 
-    <!-- ══ SIDEBAR ══ -->
-    <div class="sidebar">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
 
-      <!-- MODE TABS -->
-      <div class="mode-tabs">
-        <button class="mode-tab active-route" id="modeRouteBtn" onclick="switchMode('route')">🗺 Route</button>
-        <button class="mode-tab" id="modeSurpriseBtn" onclick="switchMode('surprise')">✦ Surprise Me</button>
-      </div>
+    <div class="mode-tabs">
+      <button class="mode-tab route-active" id="tab-route" onclick="switchMode('route')">🗺 Route</button>
+      <button class="mode-tab" id="tab-surp" onclick="switchMode('surp')">✦ Surprise Me</button>
+    </div>
 
-      <div class="sidebar-inner">
+    <!-- ROUTE PANEL -->
+    <div class="panel active" id="panel-route">
+      <div class="panel-scroll">
 
-        <!-- ══ ROUTE MODE ══ -->
-        <div class="panel active" id="routePanel">
-          <div class="section-label">Trip Details</div>
-          <input type="text" id="r-origin" placeholder="Starting city or address" />
-          <input type="text" id="r-destination" placeholder="Final destination" />
+        <div class="slabel">Origin & Destination</div>
+        <input type="text" id="r-origin" placeholder="Starting city or address" />
+        <input type="text" id="r-dest" placeholder="Final destination" />
 
-          <div class="input-row">
-            <div>
-              <label class="input-label">Drive hrs/day</label>
-              <input type="number" id="r-driveHours" value="6" min="1" max="14" />
-            </div>
-            <div>
-              <label class="input-label">Total days</label>
-              <input type="number" id="r-tripDays" value="3" min="1" max="30" />
-            </div>
-            <div>
-              <label class="input-label">Nights at dest</label>
-              <input type="number" id="r-nightsDest" value="0" min="0" max="20" />
-            </div>
+        <div class="slabel">Trip Parameters</div>
+        <div class="row">
+          <div>
+            <label class="ilabel">Drive hrs/day</label>
+            <input type="number" id="r-drive" value="6" min="1" max="14" />
           </div>
-
-          <input type="text" id="r-departDate" placeholder="Depart date (e.g. June 15)" />
-
-          <label class="chip" id="r-roundtripChip" style="margin-bottom:8px;width:fit-content">
-            <input type="checkbox" id="r-roundtrip"> 🔄 Round Trip
-          </label>
-
-          <div class="section-label">Interests</div>
-          <div class="chips" id="r-interests">
-            <label class="chip active"><input type="checkbox" value="scenic viewpoints" checked>🏔 Scenic</label>
-            <label class="chip"><input type="checkbox" value="local food and restaurants">🍜 Food</label>
-            <label class="chip"><input type="checkbox" value="national parks">🌲 Nature</label>
-            <label class="chip"><input type="checkbox" value="historical sites">🏛 History</label>
-            <label class="chip"><input type="checkbox" value="roadside attractions">🎪 Quirky</label>
-            <label class="chip"><input type="checkbox" value="beaches">🏖 Beach</label>
-            <label class="chip"><input type="checkbox" value="museums and art">🎨 Culture</label>
-            <label class="chip"><input type="checkbox" value="adventure sports">⚡ Adventure</label>
-            <label class="chip"><input type="checkbox" value="small towns">🏘 Towns</label>
-            <label class="chip"><input type="checkbox" value="camping">⛺ Camping</label>
+          <div>
+            <label class="ilabel">Total days</label>
+            <input type="number" id="r-days" value="3" min="1" max="30" />
           </div>
-
-          <div class="section-label">Notes</div>
-          <textarea id="r-notes" rows="2" placeholder="Kids, pets, avoid highways..." style="resize:none"></textarea>
-
-          <button class="btn btn-route" id="r-generateBtn" onclick="generateRoute()">✦ PLAN MY ROAD TRIP</button>
-          <div class="thinking-box" id="r-thinking">
-            <div class="think-label">✦ Gemini is planning your route...</div>
-            <div id="r-thinkingText" style="font-size:10px;opacity:.8"></div>
+        </div>
+        <div class="row">
+          <div>
+            <label class="ilabel">Nights at dest</label>
+            <input type="number" id="r-nights" value="0" min="0" max="20" />
           </div>
+          <div>
+            <label class="ilabel">Depart date</label>
+            <input type="text" id="r-date" placeholder="e.g. June 15" />
+          </div>
+        </div>
+        <label class="chip" id="r-rt-chip" style="margin-bottom:8px;width:fit-content">
+          <input type="checkbox" id="r-roundtrip"> 🔄 Round Trip
+        </label>
 
-          <div class="stops-container" id="r-stopsContainer" style="display:none">
-            <div class="section-label">Your Itinerary</div>
-            <div id="r-stopsList"></div>
+        <div class="slabel">Interests</div>
+        <div class="chips" id="r-chips">
+          <label class="chip on"><input type="checkbox" value="scenic viewpoints and overlooks" checked>🏔 Scenic</label>
+          <label class="chip"><input type="checkbox" value="local food and restaurants">🍜 Food</label>
+          <label class="chip"><input type="checkbox" value="national and state parks">🌲 Nature</label>
+          <label class="chip"><input type="checkbox" value="historical sites and landmarks">🏛 History</label>
+          <label class="chip"><input type="checkbox" value="quirky roadside attractions">🎪 Quirky</label>
+          <label class="chip"><input type="checkbox" value="beaches and waterfront">🏖 Beach</label>
+          <label class="chip"><input type="checkbox" value="museums and art galleries">🎨 Culture</label>
+          <label class="chip"><input type="checkbox" value="adventure sports and activities">⚡ Adventure</label>
+          <label class="chip"><input type="checkbox" value="charming small towns">🏘 Towns</label>
+          <label class="chip"><input type="checkbox" value="camping and stargazing">⛺ Camping</label>
+        </div>
+
+        <div class="slabel">Notes <span style="font-weight:300;text-transform:none;letter-spacing:0">(optional)</span></div>
+        <textarea id="r-notes" rows="2" placeholder="Kids, pets, avoid highways, budget..."></textarea>
+
+        <button class="btn btn-amber mt8" id="r-btn" onclick="planRoute()">✦ PLAN MY ROAD TRIP</button>
+
+        <div class="thinking" id="r-thinking">
+          <div class="think-hd">✦ Gemini is planning your route...</div>
+          <div class="think-sub" id="r-think-sub"></div>
+        </div>
+
+        <div id="r-results" class="hidden mt8">
+          <div class="slabel">Your Itinerary</div>
+          <div id="r-stops"></div>
+        </div>
+
+      </div><!-- /panel-scroll -->
+    </div><!-- /panel-route -->
+
+    <!-- SURPRISE PANEL -->
+    <div class="panel" id="panel-surp">
+      <div class="panel-scroll">
+
+        <div class="slabel">Home Base</div>
+        <input type="text" id="s-home" placeholder="Your city (e.g. Austin, TX)" />
+
+        <div class="slabel">Trip Length</div>
+        <div class="range-row">
+          <input type="range" id="s-days" min="2" max="14" value="5" oninput="document.getElementById('s-days-val').textContent=this.value+' DAYS'">
+          <div class="range-val" id="s-days-val">5 DAYS</div>
+        </div>
+
+        <div class="slabel">Max Drive Hrs/Day</div>
+        <div class="range-row">
+          <input type="range" id="s-drive" min="2" max="12" value="6" style="accent-color:var(--purple)" oninput="document.getElementById('s-drive-val').textContent=this.value+' HRS'">
+          <div class="range-val" id="s-drive-val">6 HRS</div>
+        </div>
+
+        <div class="slabel">General Direction</div>
+        <div class="dir-pills" id="s-dirs">
+          <span class="dpill" data-v="north" onclick="toggleDir(this)">↑ N</span>
+          <span class="dpill" data-v="south" onclick="toggleDir(this)">↓ S</span>
+          <span class="dpill" data-v="east" onclick="toggleDir(this)">→ E</span>
+          <span class="dpill" data-v="west" onclick="toggleDir(this)">← W</span>
+          <span class="dpill" data-v="southwest" onclick="toggleDir(this)">↙ SW</span>
+          <span class="dpill" data-v="southeast" onclick="toggleDir(this)">↘ SE</span>
+          <span class="dpill" data-v="northwest" onclick="toggleDir(this)">↖ NW</span>
+          <span class="dpill" data-v="northeast" onclick="toggleDir(this)">↗ NE</span>
+          <span class="dpill" data-v="any" onclick="toggleDir(this)">🎲 Any</span>
+        </div>
+
+        <div class="row">
+          <div>
+            <label class="ilabel">Nights at dest</label>
+            <input type="number" id="s-nights" value="2" min="0" max="20" />
+          </div>
+          <div style="padding-top:20px">
+            <label class="chip" style="width:fit-content">
+              <input type="checkbox" id="s-roundtrip"> 🔄 Round Trip
+            </label>
           </div>
         </div>
 
-        <!-- ══ SURPRISE MODE ══ -->
-        <div class="panel" id="surprisePanel">
-          <div class="section-label">Home Base</div>
-          <input type="text" id="s-homebase" placeholder="Your city (e.g. Austin, TX)" />
+        <div class="slabel">What Do You Love?</div>
+        <div class="chips" id="s-chips">
+          <label class="chip"><input type="checkbox" value="scenic viewpoints and natural wonders">🏔 Scenic</label>
+          <label class="chip"><input type="checkbox" value="local food and unique restaurants">🍜 Food</label>
+          <label class="chip"><input type="checkbox" value="national parks and hiking">🌲 Nature</label>
+          <label class="chip"><input type="checkbox" value="historical sites and landmarks">🏛 History</label>
+          <label class="chip"><input type="checkbox" value="quirky roadside attractions">🎪 Quirky</label>
+          <label class="chip"><input type="checkbox" value="beaches and water activities">🏖 Beach</label>
+          <label class="chip"><input type="checkbox" value="museums art and culture">🎨 Culture</label>
+          <label class="chip"><input type="checkbox" value="adventure sports">⚡ Adventure</label>
+          <label class="chip"><input type="checkbox" value="charming small towns">🏘 Towns</label>
+          <label class="chip"><input type="checkbox" value="camping and stargazing">⛺ Camping</label>
+          <label class="chip"><input type="checkbox" value="wineries and breweries">🍷 Drinks</label>
+          <label class="chip"><input type="checkbox" value="live music and nightlife">🎵 Music</label>
+        </div>
 
-          <div class="section-label">Trip Length</div>
-          <div class="slider-row">
-            <input type="range" id="s-days" min="2" max="14" value="5" oninput="updateDaysLabel(this.value)" />
-            <div class="slider-val" id="s-daysLabel">5 DAYS</div>
-          </div>
+        <textarea id="s-notes" rows="2" placeholder="Kids, pets, budget, vibe..."></textarea>
 
-          <div class="section-label">Max Drive Hrs/Day</div>
-          <div class="slider-row">
-            <input type="range" id="s-driveHours" min="2" max="12" value="6" oninput="updateDriveLabel(this.value)" style="accent-color:#7c3aed" />
-            <div class="slider-val" id="s-driveLabel">6 HRS</div>
-          </div>
+        <button class="btn btn-purple mt8" id="s-btn" onclick="planSurprise()">✦ FIND MY ADVENTURE</button>
 
-          <div class="section-label">General Direction</div>
-          <div class="dir-pills" id="s-directions">
-            <span class="dir-pill" onclick="toggleDir(this)" data-val="north">↑ N</span>
-            <span class="dir-pill" onclick="toggleDir(this)" data-val="south">↓ S</span>
-            <span class="dir-pill" onclick="toggleDir(this)" data-val="east">→ E</span>
-            <span class="dir-pill" onclick="toggleDir(this)" data-val="west">← W</span>
-            <span class="dir-pill" onclick="toggleDir(this)" data-val="southwest">↙ SW</span>
-            <span class="dir-pill" onclick="toggleDir(this)" data-val="southeast">↘ SE</span>
-            <span class="dir-pill" onclick="toggleDir(this)" data-val="northwest">↖ NW</span>
-            <span class="dir-pill" onclick="toggleDir(this)" data-val="northeast">↗ NE</span>
-            <span class="dir-pill" onclick="toggleDir(this)" data-val="any">🎲 Any</span>
-          </div>
+        <div class="thinking purple" id="s-thinking">
+          <div class="think-hd">✦ Gemini is dreaming up your trip...</div>
+          <div class="think-sub" id="s-think-sub"></div>
+        </div>
 
-          <div class="input-row">
-            <div>
-              <label class="input-label">Nights at dest</label>
-              <input type="number" id="s-nightsDest" value="2" min="0" max="20" />
-            </div>
-            <div style="padding-top:20px">
-              <label class="chip" style="width:fit-content">
-                <input type="checkbox" id="s-roundtrip"> 🔄 Round Trip
-              </label>
-            </div>
-          </div>
-
-          <div class="section-label">What Do You Love?</div>
-          <div class="chips" id="s-interests">
-            <label class="chip"><input type="checkbox" value="scenic viewpoints and natural wonders">🏔 Scenic</label>
-            <label class="chip"><input type="checkbox" value="local food and unique restaurants">🍜 Food</label>
-            <label class="chip"><input type="checkbox" value="national parks and hiking">🌲 Nature</label>
-            <label class="chip"><input type="checkbox" value="historical sites and landmarks">🏛 History</label>
-            <label class="chip"><input type="checkbox" value="quirky roadside attractions">🎪 Quirky</label>
-            <label class="chip"><input type="checkbox" value="beaches and water">🏖 Beach</label>
-            <label class="chip"><input type="checkbox" value="museums art and culture">🎨 Culture</label>
-            <label class="chip"><input type="checkbox" value="adventure sports">⚡ Adventure</label>
-            <label class="chip"><input type="checkbox" value="charming small towns">🏘 Towns</label>
-            <label class="chip"><input type="checkbox" value="camping and stargazing">⛺ Camping</label>
-            <label class="chip"><input type="checkbox" value="wineries and breweries">🍷 Drinks</label>
-            <label class="chip"><input type="checkbox" value="live music and nightlife">🎵 Music</label>
-          </div>
-
-          <textarea id="s-notes" rows="2" placeholder="Kids, pets, budget, vibe..." style="resize:none"></textarea>
-
-          <button class="btn btn-surprise" id="s-generateBtn" onclick="generateSurprise()">✦ FIND MY ADVENTURE</button>
-          <div class="thinking-box surprise" id="s-thinking">
-            <div class="think-label">✦ Gemini is dreaming up your trip...</div>
-            <div id="s-thinkingText" style="font-size:10px;opacity:.8"></div>
-          </div>
-
-          <!-- Idea cards -->
-          <div id="s-ideasContainer" style="display:none; margin-top:10px">
-            <div class="section-label">Gemini Suggests...</div>
-            <div id="s-ideaCards"></div>
-            <div style="display:flex;gap:6px;margin-top:6px">
-              <button class="btn btn-ghost" style="flex:1" onclick="regenerateSurprise()">↺ NEW IDEAS</button>
-              <button class="btn btn-surprise" style="flex:2;font-size:11px;width:auto;padding:9px 14px" id="s-buildBtn" onclick="buildSelectedTrip()" disabled>✦ BUILD THIS TRIP</button>
-            </div>
-          </div>
-
-          <div class="stops-container" id="s-stopsContainer" style="display:none; margin-top:10px">
-            <div class="section-label">Your Itinerary</div>
-            <div id="s-stopsList"></div>
+        <div id="s-ideas-wrap" class="hidden mt8">
+          <div class="slabel">Gemini Suggests...</div>
+          <div id="s-ideas"></div>
+          <div class="flex mt4">
+            <button class="btn-ghost btn" onclick="planSurprise()">↺ NEW IDEAS</button>
+            <button class="btn btn-purple" id="s-build-btn" onclick="buildTrip()" disabled style="width:auto;flex:2;font-size:10px;letter-spacing:2px">✦ BUILD THIS TRIP</button>
           </div>
         </div>
 
-      </div><!-- /sidebar-inner -->
+        <div id="s-results" class="hidden mt8">
+          <div class="slabel">Your Itinerary</div>
+          <div id="s-stops"></div>
+        </div>
 
-      <!-- Sidebar action buttons (shown after trip planned) -->
-      <div class="panel-actions" id="sidebarActions" style="display:none">
-        <button class="btn btn-ghost" onclick="resetAll()">↺ RESET</button>
-        <button class="btn btn-ghost" onclick="exportItinerary()">↓ EXPORT</button>
-        <button class="btn btn-ghost" onclick="exportPDF()">📄 PDF</button>
       </div>
+    </div><!-- /panel-surp -->
 
-      <!-- Status bar -->
-      <div class="status-bar">
-        <span class="sdot" id="statusDot"></span>
-        <span id="statusText" style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1px">Maps loading...</span>
+    <!-- Bottom action buttons -->
+    <div id="sidebar-actions">
+      <button class="btn-ghost btn" onclick="resetAll()">↺ RESET</button>
+      <button class="btn-ghost btn" onclick="exportTxt()">↓ EXPORT</button>
+      <button class="btn-ghost btn" onclick="printPDF()">📄 PDF</button>
+    </div>
+
+    <!-- Status bar -->
+    <div id="statusbar">
+      <span id="sdot"></span>
+      <span id="stext">Initializing...</span>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- MAP -->
+  <div id="map-area">
+    <div id="map"></div>
+    <div id="map-placeholder">
+      <div class="mph1">YOUR ROUTE<br>AWAITS</div>
+      <div class="mph2">Plan your trip on the left</div>
+    </div>
+    <div id="stat-bar">
+      <div class="stat-wrap">
+        <div class="stat"><div class="sv" id="st-stops">—</div><div class="sl">Stops</div></div>
+        <div class="stat"><div class="sv" id="st-miles">—</div><div class="sl">Miles</div></div>
+        <div class="stat"><div class="sv" id="st-days">—</div><div class="sl">Days</div></div>
+        <div class="stat"><div class="sv" id="st-drive">—</div><div class="sl">Drive</div></div>
       </div>
+    </div>
+  </div>
 
-    </div><!-- /sidebar -->
-
-    <!-- ══ MAP AREA ══ -->
-    <div class="map-area">
-      <div id="map"></div>
-      <div class="map-placeholder" id="mapPlaceholder">
-        <h2>YOUR ROUTE<br>AWAITS</h2>
-        <p>Configure on the left and hit plan</p>
-      </div>
-      <!-- Trip summary stat bar -->
-      <div id="tripSummary" style="display:none;position:absolute;bottom:16px;right:16px;display:none;gap:1px;overflow:hidden;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.12);border:1px solid #e2ddd6">
-        <div class="stat"><div class="stat-value" id="sumStops">—</div><div class="stat-label">Stops</div></div>
-        <div class="stat"><div class="stat-value" id="sumDist">—</div><div class="stat-label">Miles</div></div>
-        <div class="stat"><div class="stat-value" id="sumDays">—</div><div class="stat-label">Days</div></div>
-        <div class="stat"><div class="stat-value" id="sumDrive">—</div><div class="stat-label">Drive</div></div>
-      </div>
-    </div><!-- /map-area -->
-
-  </div><!-- /main-layout -->
+</div><!-- /app -->
 
 <script>
-// ── STATE ─────────────────────────────────────────────────────────
-let map, directionsService, directionsRenderer, geocoder;
-let mapsLoaded = false;
-let currentStops = [];
-let currentMode = 'route';
-let selectedIdea = null;
-let lastSurpriseParams = null;
+'use strict';
+// ═══════════════════════════════════════════════════════════════
+// WAYPOINT v3.0.0 — Ground Zero Build
+// Bulletproof: referrerPolicy fix, JS-only geocoding,
+//              model fallback chain, robust JSON parsing
+// ═══════════════════════════════════════════════════════════════
 
-// ── PDF EXPORT ────────────────────────────────────────────────────
-function exportPDF() {
-  if (!currentStops || currentStops.length === 0) {
-    return setStatus('Plan a trip first before exporting PDF', 'error');
-  }
+// ── AUTH ──────────────────────────────────────────────────────
+const USERS = { jeff: 'GreenBay', lucas: 'Francis' };
+let currentUser = '';
 
-  // Group stops by day
-  const days = {};
-  currentStops.forEach(s => {
-    if (!days[s.day]) days[s.day] = [];
-    days[s.day].push(s);
-  });
-
-  const stopTypeLabel = {
-    'origin': '🏠 START', 'destination': '🎯 DESTINATION',
-    'destination-overnight': '🎯 DESTINATION', 'overnight': '🌙 OVERNIGHT',
-    'activity': '⭐ ACTIVITY', 'brief': '⛽ BRIEF STOP', 'waypoint': '📍 STOP',
-  };
-
-  // Build HTML for print
-  const tripTitle = currentStops[0]?.name + ' → ' + currentStops[currentStops.length-1]?.name;
-  const totalMiles = document.querySelector('.stat-value')?.textContent || '';
-
-  let html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-  <title>WAYPOINT Itinerary</title>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; font-size: 12px; color: #111; background: #fff; padding: 32px; }
-    .header { border-bottom: 3px solid #e8d56a; padding-bottom: 16px; margin-bottom: 24px; }
-    .header h1 { font-size: 28px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; }
-    .header .subtitle { font-size: 12px; color: #666; letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
-    .header .stats { display: flex; gap: 32px; margin-top: 12px; }
-    .header .stat { text-align: center; }
-    .header .stat .val { font-size: 20px; font-weight: 700; color: #b8a043; }
-    .header .stat .lbl { font-size: 9px; color: #999; letter-spacing: 2px; text-transform: uppercase; }
-    .day-header { background: #111; color: #e8d56a; font-size: 11px; font-weight: 700;
-      letter-spacing: 4px; text-transform: uppercase; padding: 6px 12px; margin: 20px 0 8px; }
-    .stop { border-left: 3px solid #ccc; padding: 8px 12px; margin-bottom: 8px; page-break-inside: avoid; }
-    .stop.origin { border-color: #22c55e; }
-    .stop.destination, .stop.dest-overnight { border-color: #ef4444; }
-    .stop.overnight { border-color: #60a5fa; }
-    .stop.activity { border-color: #e8d56a; }
-    .stop.brief { border-color: #999; }
-    .stop-header { display: flex; align-items: baseline; gap: 8px; }
-    .stop-num { font-size: 10px; font-weight: 700; color: #999; min-width: 20px; }
-    .stop-type { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #666; }
-    .stop-name { font-size: 14px; font-weight: 700; margin: 2px 0; }
-    .stop-location { font-size: 10px; color: #666; margin-bottom: 4px; }
-    .stop-timing { display: flex; gap: 16px; font-size: 10px; font-weight: 600;
-      font-family: monospace; margin: 4px 0; }
-    .depart { color: #2563eb; }
-    .arrive { color: #16a34a; }
-    .stop-drive { font-size: 10px; color: #666; margin-bottom: 3px; }
-    .stop-desc { font-size: 11px; color: #333; line-height: 1.5; }
-    .stop-highlight { font-size: 10px; color: #b8a043; font-weight: 600; margin-top: 3px; }
-    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #eee;
-      font-size: 9px; color: #999; text-align: center; letter-spacing: 2px; text-transform: uppercase; }
-    @media print { body { padding: 16px; } .day-header { break-before: auto; } }
-  </style></head><body>
-  <div class="header">
-    <h1>WAYPOINT</h1>
-    <div class="subtitle">AI Road Trip Planner — Trip Itinerary</div>
-    <div style="font-size:16px;font-weight:700;margin-top:8px">${tripTitle}</div>
-    <div class="stats">`;
-
-  // Pull stats from the stat bar
-  document.querySelectorAll('.stat').forEach(s => {
-    const val = s.querySelector('.stat-value')?.textContent || '';
-    const lbl = s.querySelector('.stat-label')?.textContent || '';
-    if (val && lbl) html += `<div class="stat"><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`;
-  });
-
-  html += `</div></div>`;
-
-  // Day sections
-  Object.keys(days).sort((a,b) => a-b).forEach(day => {
-    html += `<div class="day-header">Day ${day}</div>`;
-    days[day].forEach((stop, i) => {
-      const cls = stop.stopType === 'destination-overnight' ? 'dest-overnight' : (stop.stopType || 'waypoint');
-      const typeLabel = stopTypeLabel[stop.stopType] || '📍 STOP';
-      const hasTimer = (stop.departTime && stop.departTime !== '') || (stop.arrivalTime && stop.arrivalTime !== '');
-      const hasDrive = stop.driveFromPrev && stop.driveFromPrev !== '0 min';
-
-      html += `<div class="stop ${cls}">
-        <div class="stop-header">
-          <span class="stop-num">${String(stop.order || (i+1)).padStart(2,'0')}</span>
-          <span class="stop-type">${typeLabel}</span>
-        </div>
-        <div class="stop-name">${stop.name || ''}</div>
-        <div class="stop-location">${stop.location || ''}</div>
-        ${hasDrive ? `<div class="stop-drive">🚗 ${stop.driveFromPrev}${stop.distFromPrev && stop.distFromPrev !== '0 miles' ? ' · ' + stop.distFromPrev : ''}</div>` : ''}
-        ${hasTimer ? `<div class="stop-timing">
-          ${stop.arrivalTime ? `<span class="arrive">📍 ARRIVE ${stop.arrivalTime}</span>` : ''}
-          ${stop.departTime ? `<span class="depart">🕗 DEPART ${stop.departTime}</span>` : ''}
-        </div>` : ''}
-        <div class="stop-desc">${stop.description || ''}</div>
-        ${stop.highlight ? `<div class="stop-highlight">★ ${stop.highlight}</div>` : ''}
-      </div>`;
-    });
-  });
-
-  html += `<div class="footer">Generated by WAYPOINT — AI Road Trip Planner · waypoint.ai</div>
-  </body></html>`;
-
-  // Open print window
-  const win = window.open('', '_blank', 'width=800,height=900');
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(() => { win.print(); }, 600);
-}
-
-
-
-// ── LOGIN GATE ─────────────────────────────────────────────────────
-const VALID_USERS = {
-  'jeff': 'GreenBay',
-  'lucas': 'Francis'
-};
-
-function tryLogin() {
-  const user = document.getElementById('loginUser').value.trim().toLowerCase();
-  const pass = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginError');
-
-  if (VALID_USERS[user] && VALID_USERS[user] === pass) {
-    sessionStorage.setItem('wp_auth', 'ok');
-    sessionStorage.setItem('wp_user', user);
-    localStorage.setItem('wp_last_user', user);  // persist across reloads
-    document.getElementById('loginGate').classList.add('hidden');
-    errEl.textContent = '';
-    // Show key setup if keys are missing (Maps first, then Gemini)
-    if (!hasMapsKey()) {
-      showKeySetup('maps');
-    } else if (!hasGeminiKey()) {
-      showKeySetup('gemini');
-    } else {
-      loadGoogleMaps(getKey('maps'));
-      openDrawer();
-    }
+function doLogin() {
+  const u = document.getElementById('lg-user').value.trim().toLowerCase();
+  const p = document.getElementById('lg-pass').value;
+  if (USERS[u] && USERS[u] === p) {
+    currentUser = u;
+    sessionStorage.setItem('wp_user', u);
+    sessionStorage.setItem('wp_auth', '1');
+    localStorage.setItem('wp_last', u);
+    document.getElementById('login-gate').classList.add('off');
+    afterLogin();
   } else {
-    errEl.textContent = 'Invalid username or password';
-    document.getElementById('loginPass').value = '';
-    document.getElementById('loginPass').focus();
+    document.getElementById('lg-err').textContent = 'Invalid credentials';
+    setTimeout(() => document.getElementById('lg-err').textContent = '', 2500);
   }
 }
 
-function checkAuth() {
-  if (sessionStorage.getItem('wp_auth') === 'ok') {
-    // Restore username from localStorage if sessionStorage was cleared
-    if (!sessionStorage.getItem('wp_user')) {
-      const lastUser = localStorage.getItem('wp_last_user');
-      if (lastUser) sessionStorage.setItem('wp_user', lastUser);
-    }
-    document.getElementById('loginGate').classList.add('hidden');
-    if (!hasMapsKey()) {
-      showKeySetup('maps');
-    } else if (!hasGeminiKey()) {
-      showKeySetup('gemini');
-    } else {
-      loadGoogleMaps(getKey('maps'));
-    }
-    return true;
-  }
-  return false;
-}
-
-
-
-// ── KEY SETUP ────────────────────────────────────────────────────────
-let _setupKeyType = 'maps';  // which key we're currently collecting
-
-const KEY_CONFIG = {
-  maps: {
-    title: 'GOOGLE MAPS KEY',
-    sub: 'WAYPOINT needs a Google Maps API key to show the map and calculate routes.',
-    steps: `<span>1.</span> Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#d97706">console.cloud.google.com/apis/credentials</a><br>
-            <span>2.</span> Click <b style="color:#aaa">Create credentials → API key</b><br>
-            <span>3.</span> Copy and paste it below`,
-    placeholder: 'AIzaSy...',
-    verify: async (key) => {
-      // Maps keys can't be easily verified without a DOM — just save it
-      return { ok: true };
-    },
-    onSave: (key) => {
-      saveKey('maps', key);
-      loadGoogleMaps(key);
-    },
-    next: () => !hasGeminiKey() ? showKeySetup('gemini') : (openDrawer(), null)
-  },
-  gemini: {
-    title: 'GEMINI API KEY',
-    sub: "WAYPOINT needs your Gemini API key to plan trips with AI. It's free.",
-    steps: `<span>1.</span> Go to <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#d97706">aistudio.google.com/apikey</a><br>
-            <span>2.</span> Click <b style="color:#aaa">Create API key</b><br>
-            <span>3.</span> Copy and paste it below`,
-    placeholder: 'AIzaSy...',
-    verify: async (key) => {
-      const r = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key,
-        { method:'POST', headers:{'Content-Type':'application/json'}, referrerPolicy:'no-referrer',
-          body: JSON.stringify({ contents:[{parts:[{text:'Hi'}]}], generationConfig:{maxOutputTokens:5} }) }
-      );
-      if (r.status === 403 || r.status === 401) {
-        const d = await r.json();
-        return { ok: false, msg: d.error?.message || 'Key rejected.' };
-      }
-      return { ok: true };
-    },
-    onSave: (key) => saveGeminiKey(key),
-    next: () => openDrawer()
-  }
-};
-
-function showKeySetup(type = 'maps') {
-  _setupKeyType = type;
-  const cfg = KEY_CONFIG[type];
-  document.getElementById('setupTitle').textContent = cfg.title;
-  document.getElementById('setupSub').textContent = cfg.sub;
-  document.getElementById('setupSteps').innerHTML = cfg.steps;
-  document.getElementById('setupKeyInput').placeholder = cfg.placeholder;
-  document.getElementById('setupKeyInput').value = '';
-  document.getElementById('setupError').textContent = '';
-  document.getElementById('keySetup').classList.remove('hidden');
-}
-
-function hideKeySetup() {
-  document.getElementById('keySetup').classList.add('hidden');
-  setTimeout(() => {
-    if (typeof map !== 'undefined' && map) google.maps.event.trigger(map, 'resize');
-  }, 400);
-}
-
-async function saveAndContinue() {
-  const key = document.getElementById('setupKeyInput').value.trim();
-  const errEl = document.getElementById('setupError');
-  if (!key || !key.startsWith('AIza')) {
-    errEl.textContent = 'Please enter a valid API key (starts with AIza...)';
-    return;
-  }
-  const cfg = KEY_CONFIG[_setupKeyType];
-  errEl.style.color = '#d97706';
-  errEl.textContent = 'Saving...';
-  try {
-    const result = await cfg.verify(key);
-    if (!result.ok) {
-      errEl.style.color = '#f87171';
-      errEl.textContent = result.msg || 'Key rejected — check it and try again.';
-      return;
-    }
-    cfg.onSave(key);
-    hideKeySetup();
-    errEl.textContent = '';
-    cfg.next();
-  } catch(e) {
-    // Network error — save anyway
-    cfg.onSave(key);
-    hideKeySetup();
-    cfg.next();
-  }
-}
-
-// ── LAYOUT CONTROLS ──────────────────────────────────────────────────────────
-function openDrawer()  { /* sidebar always visible */ }
-function closeDrawer() { /* sidebar always visible */ }
-function openLeftPanel()  { /* sidebar always visible */ }
-function closeLeftPanel() { /* sidebar always visible */ }
-function resetFromPanel() { resetAll(); }
-function resetAll() { resetTrip(); resetSurprise(); }
-
-function showItineraryPanel() {
-  document.getElementById('mapPlaceholder').classList.add('hidden');
-  document.getElementById('sidebarActions').style.display = 'flex';
-  document.getElementById('tripSummary').style.display = 'flex';
-}
-
-
-// ── INIT ──────────────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  // Check if already authenticated this session (loads maps if keys present)
-  checkAuth();
-
-
-  // Route chips
-  document.querySelectorAll('#r-interests .chip input').forEach(cb => {
-    cb.addEventListener('change', () => cb.closest('.chip').classList.toggle('active', cb.checked));
-  });
-
-  // Round trip chip toggles
-  document.getElementById('r-roundtrip').addEventListener('change', function() {
-    document.getElementById('r-roundtripChip').classList.toggle('active', this.checked);
-  });
-  document.getElementById('s-roundtrip').addEventListener('change', function() {
-    document.getElementById('s-roundtripChip').classList.toggle('active', this.checked);
-  });
-
-  // Surprise chips (purple active)
-  document.querySelectorAll('#s-interests .chip input').forEach(cb => {
-    cb.addEventListener('change', () => cb.closest('.chip').classList.toggle('active-purple', cb.checked));
-  });
+document.getElementById('lg-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
 });
 
-// ── KEYS ──────────────────────────────────────────────────────────
-// Keys hardcoded
-
-
-function toggleKey(id) {
-  const el = document.getElementById(id);
-  el.type = el.type === 'password' ? 'text' : 'password';
+function checkAuth() {
+  const stored = sessionStorage.getItem('wp_auth');
+  if (stored === '1') {
+    currentUser = sessionStorage.getItem('wp_user') ||
+                  localStorage.getItem('wp_last') || '';
+    if (!currentUser) { return; }
+    document.getElementById('login-gate').classList.add('off');
+    afterLogin();
+  } else {
+    // Pre-fill last username
+    const last = localStorage.getItem('wp_last');
+    if (last) document.getElementById('lg-user').value = last;
+  }
 }
 
-// ── MODE SWITCH ───────────────────────────────────────────────────
-function switchMode(mode) {
-  currentMode = mode;
-  const isRoute = mode === 'route';
-  document.getElementById('routePanel').className    = 'panel' + (isRoute  ? ' active' : '');
-  document.getElementById('surprisePanel').className = 'panel' + (!isRoute ? ' active' : '');
-  document.getElementById('modeRouteBtn').className   = 'mode-tab' + (isRoute ? ' active-route' : '');
-  document.getElementById('modeSurpriseBtn').className= 'mode-tab' + (!isRoute ? ' active-surprise' : '');
+// ── KEY MANAGEMENT ────────────────────────────────────────────
+function getKey(type) {
+  return localStorage.getItem(`wp_${type}_${currentUser}`) || '';
+}
+function saveKey(type, val) {
+  localStorage.setItem(`wp_${type}_${currentUser}`, val.trim());
 }
 
-// ── SLIDERS ───────────────────────────────────────────────────────
-function updateDaysLabel(v) { document.getElementById('s-daysLabel').textContent = v + ' DAYS'; }
-function updateDriveLabel(v) { document.getElementById('s-driveLabel').textContent = v + ' HRS'; }
+let ksType = '';
+const KS_CONFIG = {
+  gemini: {
+    title: 'GEMINI API KEY',
+    desc: 'WAYPOINT uses Gemini to plan your route. Get a free key from Google AI Studio.',
+    steps: '<b>1.</b> Visit AI Studio<br><b>2.</b> Click <span>Get API key → Create API key</span><br><b>3.</b> Copy and paste it below',
+    link:  '<a href="https://aistudio.google.com/apikey" target="_blank">↗ Open Google AI Studio</a>',
+  },
+  maps: {
+    title: 'GOOGLE MAPS KEY',
+    desc: 'WAYPOINT uses Google Maps to draw your route. Get a key from Google Cloud Console.',
+    steps: '<b>1.</b> Visit Google Cloud Console<br><b>2.</b> Enable Maps JavaScript API<br><b>3.</b> Create a key and paste it below',
+    link:  '<a href="https://console.cloud.google.com/apis/credentials" target="_blank">↗ Open Google Cloud Console</a>',
+  },
+};
 
-// ── DIRECTION PILLS ───────────────────────────────────────────────
+function showKeySetup(type) {
+  ksType = type;
+  const cfg = KS_CONFIG[type];
+  document.getElementById('key-setup').classList.remove('off');
+  document.querySelector('#key-setup .gate-logo').textContent = cfg.title;
+  document.getElementById('ks-desc').textContent = cfg.desc;
+  document.getElementById('ks-steps').innerHTML = cfg.steps;
+  document.getElementById('ks-link').innerHTML = cfg.link;
+  document.getElementById('ks-input').value = '';
+  document.getElementById('ks-err').textContent = '';
+  setTimeout(() => document.getElementById('ks-input').focus(), 100);
+}
+
+function ksSave() {
+  const val = document.getElementById('ks-input').value.trim();
+  if (!val || val.length < 20) {
+    document.getElementById('ks-err').textContent = 'Please paste a valid key';
+    return;
+  }
+  saveKey(ksType, val);
+  document.getElementById('key-setup').classList.add('off');
+  afterLogin();
+}
+
+function afterLogin() {
+  if (!getKey('maps')) { showKeySetup('maps'); return; }
+  if (!getKey('gemini')) { showKeySetup('gemini'); return; }
+  initMaps();
+}
+
+// ── CHIP TOGGLES ──────────────────────────────────────────────
+document.querySelectorAll('.chips .chip').forEach(chip => {
+  chip.addEventListener('click', () => chip.classList.toggle('on'));
+});
+
+function getChips(id) {
+  return [...document.querySelectorAll(`#${id} .chip.on input`)]
+    .map(i => i.value).filter(Boolean);
+}
+
 function toggleDir(el) {
-  document.querySelectorAll('.dir-pill').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
+  const wasOn = el.classList.contains('pon');
+  document.querySelectorAll('#s-dirs .dpill').forEach(d => d.classList.remove('pon'));
+  if (!wasOn) el.classList.add('pon');
+}
+function getDir() {
+  const el = document.querySelector('#s-dirs .dpill.pon');
+  return el ? el.dataset.v : 'any';
 }
 
-function getSelectedDir() {
-  const active = document.querySelector('.dir-pill.active');
-  return active ? active.dataset.val : 'any';
+// ── MODE SWITCH ───────────────────────────────────────────────
+function switchMode(m) {
+  document.getElementById('panel-route').className = 'panel' + (m === 'route' ? ' active' : '');
+  document.getElementById('panel-surp').className  = 'panel' + (m === 'surp'  ? ' active' : '');
+  document.getElementById('tab-route').className = 'mode-tab' + (m === 'route' ? ' route-active' : '');
+  document.getElementById('tab-surp').className  = 'mode-tab' + (m === 'surp'  ? ' surp-active' : '');
 }
 
-// ── GOOGLE MAPS ───────────────────────────────────────────────────
-function loadGoogleMaps(apiKey) {
-  if (mapsLoaded) return;
+// ── STATUS ────────────────────────────────────────────────────
+function setStatus(msg, type = '') {
+  document.getElementById('stext').textContent = msg;
+  const dot = document.getElementById('sdot');
+  dot.className = type === 'ok' ? 'ok' : type === 'err' ? 'err' : type === 'spin' ? 'spin' : '';
+}
+
+// ── GOOGLE MAPS ───────────────────────────────────────────────
+let map, geocoder, dirService, dirRenderer, dmService;
+let mapsReady = false;
+
+function initMaps() {
+  if (mapsReady || window._mapsInjected) return;
+  window._mapsInjected = true;
+  setStatus('Loading Google Maps...', 'spin');
   const s = document.createElement('script');
-  s.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMap`;
-  s.async = true;
-  s.onerror = () => setStatus('Maps failed — check Maps API key', 'error');
+  s.src = `https://maps.googleapis.com/maps/api/js?key=${getKey('maps')}&libraries=places&callback=onMapsReady&loading=async`;
+  s.onerror = () => {
+    setStatus('Maps failed to load — check your Maps key', 'err');
+    window._mapsInjected = false;
+  };
   document.head.appendChild(s);
 }
 
-window.initMap = function() {
-  mapsLoaded = true;
-  // Hide placeholder as soon as map is ready
-  const ph = document.getElementById('mapPlaceholder');
-  if (ph) ph.classList.add('hidden');
-
+window.onMapsReady = function() {
   map = new google.maps.Map(document.getElementById('map'), {
     center: { lat: 39.5, lng: -98.35 },
     zoom: 4,
-    styles: darkMapStyle(),
+    styles: mapStyle(),
+    disableDefaultUI: false,
     zoomControl: true,
-    mapTypeControl: false,
     streetViewControl: false,
+    mapTypeControl: false,
     fullscreenControl: false,
   });
-  directionsService = new google.maps.DirectionsService();
-  // Trigger resize once map is mounted so tiles render correctly
-  setTimeout(() => google.maps.event.trigger(map, 'resize'), 200);
-  directionsRenderer = new google.maps.DirectionsRenderer({
-    map,
-    suppressMarkers: true,
-    polylineOptions: { strokeColor: '#c4952a', strokeWeight: 3, strokeOpacity: 0.9 }
+  geocoder    = new google.maps.Geocoder();
+  dirService  = new google.maps.DirectionsService();
+  dirRenderer = new google.maps.DirectionsRenderer({
+    suppressMarkers: false,
+    polylineOptions: { strokeColor: '#c4952a', strokeWeight: 4, strokeOpacity: .85 },
   });
-  geocoder = new google.maps.Geocoder();
-  setStatus('Maps ready — plan your trip!', 'success');
+  dirRenderer.setMap(map);
+  dmService = new google.maps.DistanceMatrixService();
+  mapsReady = true;
+  setStatus('Ready — plan your trip', 'ok');
+  google.maps.event.trigger(map, 'resize');
 };
 
-// ══════════════════════════════════════════════════════════════════
-// ── FEASIBILITY CHECK ─────────────────────────────────────────────
-// ══════════════════════════════════════════════════════════════════
-async function checkFeasibility(origin, destination, driveHoursPerDay, tripDays, roundTrip) {
-  return new Promise(resolve => {
-    try {
-      const svc = new google.maps.DistanceMatrixService();
-      svc.getDistanceMatrix({
-        origins: [origin],
-        destinations: [destination],
-        travelMode: google.maps.TravelMode.DRIVING,
-      }, (res, status) => {
-        if (status !== 'OK') return resolve({ warning: null });
-        const el = res.rows?.[0]?.elements?.[0];
-        if (!el || el.status !== 'OK') return resolve({ warning: null });
+function mapStyle() {
+  return [
+    { featureType:'all', elementType:'geometry', stylers:[{saturation:-18},{lightness:8}] },
+    { featureType:'road', elementType:'geometry', stylers:[{color:'#ffffff'}] },
+    { featureType:'road', elementType:'geometry.stroke', stylers:[{color:'#e0ddd5'}] },
+    { featureType:'road.highway', elementType:'geometry', stylers:[{color:'#f5e9c8'}] },
+    { featureType:'road.highway', elementType:'geometry.stroke', stylers:[{color:'#d4c07a'}] },
+    { featureType:'water', elementType:'geometry', stylers:[{color:'#aecde0'}] },
+    { featureType:'landscape', elementType:'geometry', stylers:[{color:'#eee8de'}] },
+    { featureType:'poi.park', elementType:'geometry', stylers:[{color:'#d4e8c4'}] },
+    { featureType:'poi', elementType:'labels', stylers:[{visibility:'off'}] },
+    { featureType:'transit', stylers:[{visibility:'off'}] },
+    { featureType:'administrative', elementType:'geometry.stroke', stylers:[{color:'#c4bdb0'}] },
+    { featureType:'road', elementType:'labels.text.fill', stylers:[{color:'#666'}] },
+  ];
+}
 
-      const oneWayHours = el.duration.value / 3600;
-      const totalDriveHours = roundTrip ? oneWayHours * 2 : oneWayHours;
-      const availableDriveHours = driveHoursPerDay * tripDays;
-      const minDaysNeeded = Math.ceil(totalDriveHours / driveHoursPerDay);
-      const oneWayMiles = Math.round(el.distance.value / 1609);
-
-      if (totalDriveHours > availableDriveHours * 0.9) {
-        resolve({
-          warning: `${roundTrip ? 'Round trip' : 'Drive'} is ~${Math.round(totalDriveHours)}h but you only have ${availableDriveHours}h total. Need at least ${minDaysNeeded} days. Gemini will do its best.`,
-          tooShort: true,
-          minDaysNeeded,
-          oneWayMiles
-        });
+// Geocode using Maps JS Geocoder (not REST — avoids key restriction issues)
+function geocodePlace(name) {
+  return new Promise((resolve, reject) => {
+    if (!geocoder) return reject(new Error('Geocoder not ready'));
+    const t = setTimeout(() => reject(new Error('Geocode timeout: ' + name)), 8000);
+    geocoder.geocode({ address: name }, (results, status) => {
+      clearTimeout(t);
+      if (status === 'OK' && results[0]) {
+        resolve(results[0].geometry.location);
       } else {
-        resolve({ warning: null, oneWayMiles });
+        reject(new Error(`Geocode failed (${status}): ${name}`));
       }
     });
-    } catch(e) { resolve({ warning: null }); }
   });
 }
 
-// ══════════════════════════════════════════════════════════════════
-// ── ROUTE MODE ────────────────────────────────────────────────────
-// ══════════════════════════════════════════════════════════════════
-async function generateRoute() {
-  const origin      = document.getElementById('r-origin').value.trim();
-  const destination = document.getElementById('r-destination').value.trim();
-  const driveHours  = Number(document.getElementById('r-driveHours').value || 6);
-  const tripDays    = Number(document.getElementById('r-tripDays').value || 3);
-  const departDate  = document.getElementById('r-departDate').value.trim();
-  const notes       = document.getElementById('r-notes').value.trim();
-  const interests   = [...document.querySelectorAll('#r-interests input:checked')].map(c => c.value);
-  const roundTrip   = document.getElementById('r-roundtrip').checked;
-  const nightsDest  = Number(document.getElementById('r-nightsDest').value || 0);
-  const geminiKey   = getKey('gemini');
-  const mapsKey     = getKey('maps');
+// Get real drive time between two LatLng objects
+function getDriveTime(origin, dest) {
+  return new Promise((resolve) => {
+    if (!dmService) return resolve(null);
+    const t = setTimeout(() => resolve(null), 8000);
+    dmService.getDistanceMatrix({
+      origins: [origin],
+      destinations: [dest],
+      travelMode: google.maps.TravelMode.DRIVING,
+      unitSystem: google.maps.UnitSystem.IMPERIAL,
+    }, (resp, status) => {
+      clearTimeout(t);
+      if (status !== 'OK') return resolve(null);
+      const el = resp?.rows?.[0]?.elements?.[0];
+      resolve(el?.status === 'OK' ? Math.round(el.duration.value / 60) : null);
+    });
+  });
+}
 
-  if (!origin || !destination) return setStatus('Enter origin and destination', 'error');
+// Draw route on map
+async function drawRoute(stops) {
+  if (!mapsReady) return;
+  if (stops.length < 2) return;
 
-  // Feasibility check via Maps before sending to Gemini (with timeout so it never hangs)
-  if (mapsLoaded) {
+  // Geocode all stops
+  const locs = [];
+  for (const s of stops) {
     try {
-      const feasible = await Promise.race([
-        checkFeasibility(origin, destination, driveHours, tripDays, roundTrip),
-        new Promise(res => setTimeout(() => res({ warning: null }), 4000))
-      ]);
-      if (feasible.warning) setStatus('⚠ ' + feasible.warning, 'loading');
-    } catch(e) { /* ignore feasibility errors, proceed to plan */ }
-  }
-  if (!geminiKey) return setStatus('Gemini API key required', 'error');
-  if (!mapsKey)   return setStatus('Google Maps API key required', 'error');
-  if (!mapsLoaded) { loadGoogleMaps(mapsKey); return setStatus('Loading maps...', 'loading'); }
-
-  setBusy('r-generateBtn', true);
-  closeLeftPanel();
-  setStatus('Asking Gemini to plan your route...', 'loading');
-  showThinking('r', 'Analyzing the drive, calculating stop timing, picking locations that match your interests...');
-
-  try {
-    let itinerary;
-    if (roundTrip) {
-      itinerary = await callGeminiRoundTrip(geminiKey, origin, destination,
-        { driveHours, tripDays, nightsDest, interests, notes, departDate });
-    } else {
-      const prompt = buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip, nightsDest });
-      itinerary = await callGemini(geminiKey, prompt);
+      const loc = await geocodePlace(s.name + (s.state ? ', ' + s.state : ''));
+      locs.push({ stop: s, loc });
+    } catch(e) {
+      console.warn('Could not geocode:', s.name);
     }
-    hideThinking('r');
-    currentStops = await recalculateTiming(normalizeStops(itinerary.stops, origin), driveHours);
-    renderStops('r-stopsList', currentStops);
-    document.getElementById('r-stopsContainer').style.display = 'block';
-    await renderMap(currentStops);
-    renderSummary(itinerary, tripDays);
-    showItineraryPanel();
-    setStatus(`Route planned — ${itinerary.stops.length} stops over ${tripDays} days`, 'success');
-  } catch(err) {
-    hideThinking('r');
-    setStatus('Error: ' + err.message, 'error');
-    console.error(err);
+  }
+  if (locs.length < 2) return;
+
+  const origin      = locs[0].loc;
+  const destination = locs[locs.length - 1].loc;
+  const waypoints   = locs.slice(1, -1).map(l => ({
+    location: l.loc, stopover: true,
+  }));
+
+  // Cap waypoints at 23 (Maps JS limit)
+  const wp = waypoints.slice(0, 23);
+
+  dirService.route({
+    origin, destination, waypoints: wp,
+    travelMode: google.maps.TravelMode.DRIVING,
+    optimizeWaypoints: false,
+  }, (result, status) => {
+    if (status === 'OK') {
+      dirRenderer.setDirections(result);
+      document.getElementById('map-placeholder').classList.add('gone');
+      document.getElementById('sidebar-actions').style.display = 'flex';
+    } else {
+      setStatus('Route draw failed: ' + status, 'err');
+    }
+  });
+
+  return locs;
+}
+
+// ── GEMINI ────────────────────────────────────────────────────
+const MODELS = [
+  { id: 'gemini-2.5-flash', thinking: true },
+  { id: 'gemini-2.5-flash-preview-04-17', thinking: true },
+  { id: 'gemini-2.0-flash', thinking: false },
+  { id: 'gemini-2.0-flash-exp', thinking: false },
+  { id: 'gemini-1.5-flash', thinking: false },
+  { id: 'gemini-1.5-pro', thinking: false },
+];
+
+async function callGemini(prompt, thinkSub) {
+  const key = getKey('gemini');
+  if (!key) throw new Error('No Gemini key');
+
+  for (const model of MODELS) {
+    if (thinkSub) thinkSub(`Trying ${model.id}...`);
+    try {
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 16000, temperature: 0.8 },
+      };
+      if (model.thinking) {
+        body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
+
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model.id}:generateContent?key=${key}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          referrerPolicy: 'no-referrer',
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        const msg = err?.error?.message || `HTTP ${resp.status}`;
+        // Try next model on auth/quota errors specific to this model
+        if (resp.status === 400 || resp.status === 403 || resp.status === 404) {
+          console.warn(`[${model.id}] ${msg} — trying next model`);
+          continue;
+        }
+        throw new Error(msg);
+      }
+
+      const data = await resp.json();
+      const text = data?.candidates?.[0]?.content?.parts
+        ?.map(p => p.text || '').join('') || '';
+      if (!text) continue;
+      return text;
+
+    } catch(e) {
+      if (e.message.includes('No Gemini key')) throw e;
+      console.warn(`[${model.id}] Error:`, e.message);
+      // Continue to next model
+    }
+  }
+  throw new Error('All Gemini models failed. Check your API key.');
+}
+
+// Robust JSON extractor
+function extractJSON(text) {
+  // Try direct parse
+  try { return JSON.parse(text); } catch {}
+  // Strip markdown fences
+  const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  try { return JSON.parse(stripped); } catch {}
+  // Find first { ... } block
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start !== -1 && end > start) {
+    try { return JSON.parse(text.slice(start, end + 1)); } catch {}
+  }
+  // Find first [ ... ] block
+  const as = text.indexOf('[');
+  const ae = text.lastIndexOf(']');
+  if (as !== -1 && ae > as) {
+    try { return JSON.parse(text.slice(as, ae + 1)); } catch {}
+  }
+  throw new Error('Could not extract JSON from Gemini response');
+}
+
+// ── TIMING ────────────────────────────────────────────────────
+function minsToTime(m) {
+  const h = Math.floor(m / 60) % 24;
+  const mm = m % 60;
+  return String(h).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+}
+
+const DWELL = { origin:0, brief:30, activity:90, overnight:0, destination:0 };
+const REST  = new Set(['overnight','destination','destination-overnight']);
+
+async function applyTiming(stops, maxDriveHrs) {
+  // Get real drive times between consecutive stops
+  const driveMins = new Array(stops.length).fill(0);
+
+  // Geocode for distance matrix
+  const locs = [];
+  for (const s of stops) {
+    try {
+      const loc = await geocodePlace(s.name);
+      locs.push(loc);
+    } catch {
+      locs.push(null);
+    }
   }
 
-  setBusy('r-generateBtn', false);
-}
-
-function buildRoutePrompt({ origin, destination, driveHours, tripDays, departDate, interests, notes, roundTrip, nightsDest }) {
-  const eff = (driveHours - 1.4).toFixed(1);
-  const travelDays = tripDays - nightsDest;
-  const outDays = roundTrip ? Math.floor(travelDays / 2) : travelDays;
-  const retDays = roundTrip ? Math.ceil(travelDays / 2) : 0;
-  const minStops = outDays + retDays + (nightsDest > 0 ? 1 : 0);
-  const maxStops = minStops * 2 + 2;
-
-  return `Road trip planner. JSON only, no markdown.
-
-FROM: ${origin} | TO: ${destination} | DAYS: ${tripDays} | DRIVE/DAY: ${driveHours}h (net ${eff}h after 1.4h buffer) | NIGHTS AT DEST: ${nightsDest} | ROUND TRIP: ${roundTrip} | DEPART: ${departDate||'flexible'} | INTERESTS: ${interests.join(', ')||'general'} | NOTES: ${notes||'none'}
-
-STRUCTURE: ${outDays} driving days out${nightsDest>0?' / '+nightsDest+' nights at '+destination:''}${roundTrip?' / '+retDays+' driving days back to '+origin:''}
-
-RULES: MUST reach ${destination}. ${roundTrip?'Must return to '+origin+' as final stop.':''} Overnight stops in real towns. ${nightsDest>0?nightsDest+' full rest nights at '+destination+'.':''} Include ${minStops}-${maxStops} stops. CRITICAL: Total distFromPrev miles across ALL stops on the SAME day must not exceed ${Math.round(parseFloat(eff)*50)} miles (= ${eff}h x 55mph). Split long drives across multiple stops.
-
-JSON schema:
-{"summary":"","totalMiles":0,"totalDriveHours":0,"daysBreakdown":"Xd out / Yn dest / Zd back",
-"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"Depart 08:00. ...","stopType":"origin","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
-
-stopType: origin|overnight|destination|destination-overnight|activity|brief
-type: origin(first)|destination(last)|waypoint(middle)`;
-}
-
-// ══════════════════════════════════════════════════════════════════
-// ── SURPRISE MODE ─────────────────────────────────────────────────
-// ══════════════════════════════════════════════════════════════════
-async function generateSurprise() {
-  const homebase   = document.getElementById('s-homebase').value.trim();
-  const days       = document.getElementById('s-days').value;
-  const driveHours = document.getElementById('s-driveHours').value;
-  const direction  = getSelectedDir();
-  const interests  = [...document.querySelectorAll('#s-interests input:checked')].map(c => c.value);
-  const notes      = document.getElementById('s-notes').value.trim();
-  const roundTrip  = document.getElementById('s-roundtrip').checked;
-  const nightsDest = Number(document.getElementById('s-nightsDest')?.value || 0);
-  const geminiKey  = getKey('gemini');
-  const mapsKey    = getKey('maps');
-
-  if (!homebase)   return setStatus('Enter your starting city', 'error');
-  if (!geminiKey)  return setStatus('Gemini API key required', 'error');
-  if (!mapsKey)    return setStatus('Google Maps API key required', 'error');
-  if (!mapsLoaded) { loadGoogleMaps(mapsKey); return setStatus('Loading maps...', 'loading'); }
-
-  // Save params for regenerate
-  lastSurpriseParams = { homebase, days, driveHours, direction, interests, notes, roundTrip, nightsDest };
-
-  setBusy('s-generateBtn', true);
-  document.getElementById('s-ideasContainer').style.display = 'none';
-  document.getElementById('s-stopsContainer').style.display = 'none';
-  selectedIdea = null;
-  document.getElementById('s-buildBtn').disabled = true;
-
-  setStatus('Gemini is brainstorming trip ideas...', 'loading');
-  showThinking('s', 'Thinking about where to send you based on your interests, drive limits, and direction...');
-
-  try {
-    const prompt = buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip, nightsDest });
-    const result = await callGemini(geminiKey, prompt);
-    hideThinking('s');
-    renderIdeaCards(result.ideas);
-    document.getElementById('s-ideasContainer').style.display = '';
-    setStatus('Pick a trip idea, then hit Build!', 'success');
-  } catch(err) {
-    hideThinking('s');
-    setStatus('Error: ' + err.message, 'error');
-    console.error(err);
+  for (let i = 1; i < stops.length; i++) {
+    if (!locs[i-1] || !locs[i]) {
+      // Fallback: estimate from miles
+      const mi = parseFloat((stops[i].distFromPrev || '').match(/[\d.]+/)?.[0] || 0);
+      driveMins[i] = mi > 0 ? Math.round((mi / 55) * 60) : 0;
+      continue;
+    }
+    setStatus(`Calculating drive time to ${stops[i].name}...`, 'spin');
+    const mins = await getDriveTime(locs[i-1], locs[i]);
+    if (mins !== null) {
+      driveMins[i] = mins;
+    } else {
+      const mi = parseFloat((stops[i].distFromPrev || '').match(/[\d.]+/)?.[0] || 0);
+      driveMins[i] = mi > 0 ? Math.round((mi / 55) * 60) : 0;
+    }
   }
 
-  setBusy('s-generateBtn', false);
+  // Per-day scaling
+  const maxMins = (maxDriveHrs || 8) * 60;
+  const dayTot = {};
+  stops.forEach((s, i) => {
+    if (i === 0 || REST.has(s.stopType) || !driveMins[i]) return;
+    dayTot[s.day] = (dayTot[s.day] || 0) + driveMins[i];
+  });
+  const dayScale = {};
+  Object.entries(dayTot).forEach(([d, t]) => {
+    dayScale[d] = t > maxMins ? maxMins / t : 1;
+  });
+
+  // Assign times
+  let clock = 8 * 60, lastDay = -1;
+  stops.forEach((stop, i) => {
+    if (stop.day !== lastDay) { clock = 8 * 60; lastDay = stop.day; }
+    const raw   = driveMins[i] || 0;
+    const scale = dayScale[stop.day] || 1;
+    const drive = Math.round(raw * scale);
+
+    if (i === 0) {
+      stop.arrivalTime = ''; stop.departTime = '08:00'; stop.driveLabel = '';
+    } else if (!raw) {
+      stop.arrivalTime = ''; stop.departTime = '';
+    } else {
+      const arr = clock + drive;
+      stop.arrivalTime = minsToTime(arr);
+      if (REST.has(stop.stopType)) {
+        stop.departTime = '';
+      } else {
+        const dwell = DWELL[stop.stopType] ?? 60;
+        const dep = arr + dwell;
+        stop.departTime = minsToTime(dep);
+        clock = dep;
+      }
+      const dh = Math.floor(drive / 60), dm = drive % 60;
+      stop.driveLabel = dh > 0 ? `${dh}h${dm > 0 ? ' ' + dm + 'm' : ''}` : `${dm} min`;
+    }
+  });
+
+  return stops;
 }
 
-function buildSurpriseIdeasPrompt({ homebase, days, driveHours, direction, interests, notes, roundTrip, nightsDest = 0 }) {
-  const BUFFER_HRS = 1.4;
-  const effectiveDriveHrs = (driveHours - BUFFER_HRS).toFixed(1);
-  const travelDays = days - (nightsDest || 0);
-  const outDays = roundTrip ? Math.floor(travelDays / 2) : travelDays;
-  const rtNote = roundTrip
-    ? `- ROUND TRIP: ~${outDays} days out, ${nightsDest} night(s) at destination, ~${Math.ceil(travelDays/2)} days back to ${homebase}.`
-    : `- ONE-WAY: ${travelDays} driving days, ${nightsDest} night(s) at destination.`;
-  const maxMiles = outDays * effectiveDriveHrs * 60; // rough miles assuming 60mph avg
+// ── STOP NORMALIZATION ────────────────────────────────────────
+function normalizeStops(raw, originName) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((s, i) => ({
+    name:         s.name || s.location || `Stop ${i+1}`,
+    stopType:     (s.stopType || s.type || (i===0?'origin':i===raw.length-1?'destination':'activity')).toLowerCase(),
+    day:          Number(s.day) || Math.ceil((i+1) / 2),
+    description:  s.description || s.desc || '',
+    highlights:   s.highlights || s.highlight || '',
+    distFromPrev: s.distFromPrev || s.distance || '',
+    arrivalTime:  '', departTime: '', driveLabel: '',
+  }));
+}
 
-  return `Surprise road trip advisor. JSON only, no markdown. Generate 3 distinct trip concepts.
+// ── RENDER STOPS ──────────────────────────────────────────────
+function renderStops(containerId, stops) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  let html = '';
+  let lastDay = -1;
 
-FROM: ${homebase} | DAYS: ${days} | NIGHTS AT DEST: ${nightsDest} | OUTBOUND DAYS: ${outDays} | MAX ONE-WAY: ~${Math.round(maxMiles)}mi | NET DRIVE/DAY: ${effectiveDriveHrs}h | DIRECTION: ${direction==='any'?'any':direction} | LOVES: ${interests.join(',')||'general'} | NOTES: ${notes||'none'} | ${rtNote}
+  stops.forEach((s, i) => {
+    if (s.day !== lastDay) {
+      html += `<div class="day-label">Day ${s.day}</div>`;
+      lastDay = s.day;
+    }
+    const t = s.stopType.replace('-','_').split('_')[0];
+    const badgeClass = ['origin','destination','overnight','activity','brief'].includes(t) ? `b-${t}` : 'b-activity';
+    const cardClass  = ['origin','destination','overnight','activity','brief'].includes(t) ? `t-${t}` : 't-activity';
 
-Return ONLY this JSON:
+    let timesHtml = '';
+    if (s.arrivalTime && s.departTime) timesHtml = `<div class="stop-times">ARR ${s.arrivalTime} · DEP ${s.departTime}</div>`;
+    else if (s.arrivalTime) timesHtml = `<div class="stop-times">ARR ${s.arrivalTime}</div>`;
+    else if (s.departTime) timesHtml = `<div class="stop-times">DEP ${s.departTime}</div>`;
+
+    html += `
+      <div class="stop-card ${cardClass}">
+        <div class="stop-badge ${badgeClass}">${s.stopType}</div>
+        <div class="stop-name">${s.name}</div>
+        ${s.driveLabel ? `<div class="stop-drive">🚗 ${s.driveLabel} drive</div>` : ''}
+        ${timesHtml}
+        ${s.description ? `<div class="stop-desc">${s.description}</div>` : ''}
+        ${s.highlights ? `<div class="stop-hl">★ ${s.highlights}</div>` : ''}
+      </div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ── SUMMARY ───────────────────────────────────────────────────
+function showSummary(stops, itinerary) {
+  const days  = Math.max(...stops.map(s => s.day));
+  const miles = itinerary.totalMiles || itinerary.totalDistance || '?';
+  const drHrs = itinerary.totalDriveHours || '?';
+  document.getElementById('st-stops').textContent = stops.length;
+  document.getElementById('st-miles').textContent = miles;
+  document.getElementById('st-days').textContent  = days;
+  document.getElementById('st-drive').textContent = typeof drHrs === 'number' ? drHrs + 'h' : drHrs;
+  document.getElementById('stat-bar').style.display = 'block';
+}
+
+// ── ROUTE PLANNING ────────────────────────────────────────────
+async function planRoute() {
+  const origin  = document.getElementById('r-origin').value.trim();
+  const dest    = document.getElementById('r-dest').value.trim();
+  const drive   = parseInt(document.getElementById('r-drive').value) || 6;
+  const days    = parseInt(document.getElementById('r-days').value) || 3;
+  const nights  = parseInt(document.getElementById('r-nights').value) || 0;
+  const date    = document.getElementById('r-date').value.trim();
+  const rt      = document.getElementById('r-roundtrip').checked;
+  const notes   = document.getElementById('r-notes').value.trim();
+  const ints    = getChips('r-chips');
+
+  if (!origin || !dest) {
+    setStatus('Enter both origin and destination', 'err'); return;
+  }
+  if (!mapsReady) { setStatus('Maps not ready yet', 'err'); return; }
+
+  const btn = document.getElementById('r-btn');
+  btn.disabled = true;
+  document.getElementById('r-thinking').style.display = 'block';
+  document.getElementById('r-results').classList.add('hidden');
+  setStatus('Connecting to Gemini...', 'spin');
+
+  const thinkSub = t => { document.getElementById('r-think-sub').textContent = t; setStatus(t, 'spin'); };
+
+  const eff = (drive * 0.85).toFixed(1);
+  const prompt = `Plan a ${days}-day road trip from "${origin}" to "${dest}".
+${rt ? 'This is a ROUND TRIP — the route must return to the origin.' : ''}
+${nights > 0 ? `Spend ${nights} night(s) at the destination before returning.` : ''}
+Max driving: ${drive} hours/day (effective ~${eff}h net). Depart: ${date || 'flexible'}.
+Interests: ${ints.length ? ints.join(', ') : 'general sightseeing'}.
+${notes ? `Notes: ${notes}` : ''}
+
+Return ONLY a JSON object (no markdown, no explanation) with this exact structure:
 {
-  "ideas": [
+  "title": "Trip title",
+  "totalMiles": 000,
+  "totalDriveHours": 0,
+  "stops": [
     {
-      "id": "idea_1",
-      "title": "Short evocative trip name (3-5 words)",
-      "tagline": "One enticing sentence describing the vibe",
-      "destination": "Final destination city, State",
-      "route_hint": "Brief route description e.g. 'Up the Pacific Coast through Big Sur'",
-      "tags": ["tag1", "tag2", "tag3"],
-      "estimatedMiles": 800,
-      "highlights": ["Top highlight 1", "Top highlight 2", "Top highlight 3"],
-      "bestFor": "Who this trip is perfect for"
+      "name": "City, State",
+      "stopType": "origin|brief|activity|overnight|destination",
+      "day": 1,
+      "description": "1-2 sentence description",
+      "highlights": "Key attraction or thing to do",
+      "distFromPrev": "000 miles"
     }
   ]
 }
 
 Rules:
-- Make each idea meaningfully different in destination, vibe, and route
-- Keep destinations reachable given ${driveHours} hrs/day for ${days} days from ${homebase}
-- Match interests in highlights
-- Titles should be exciting and evocative, not generic`;
-}
-
-function renderIdeaCards(ideas) {
-  const container = document.getElementById('s-ideaCards');
-  container.innerHTML = '';
-  ideas.forEach(idea => {
-    const card = document.createElement('div');
-    card.className = 'idea-card';
-    card.innerHTML = `
-      <div class="idea-title">${idea.title}</div>
-      <div class="idea-subtitle">${idea.tagline}</div>
-      <div class="idea-tags">${(idea.tags || []).map(t => `<span class="idea-tag">${t}</span>`).join('')}</div>
-      <div style="font-size:12px;color:var(--text);margin-bottom:8px">${(idea.highlights || []).map(h => `★ ${h}`).join(' &nbsp;·&nbsp; ')}</div>
-      <div class="idea-meta">📍 ${idea.destination} &nbsp;·&nbsp; ~${idea.estimatedMiles} miles &nbsp;·&nbsp; ${idea.route_hint}</div>
-      ${idea.bestFor ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">Perfect for: ${idea.bestFor}</div>` : ''}
-    `;
-    card.addEventListener('click', () => {
-      document.querySelectorAll('.idea-card').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      selectedIdea = idea;
-      document.getElementById('s-buildBtn').disabled = false;
-    });
-    container.appendChild(card);
-  });
-}
-
-async function buildSelectedTrip() {
-  if (!selectedIdea) return;
-  const p = lastSurpriseParams;
-  const geminiKey = getKey('gemini');
-
-  setBusy('s-buildBtn', true);
-  document.getElementById('s-stopsContainer').style.display = 'none';
-  setStatus('Building full itinerary for: ' + selectedIdea.title, 'loading');
-  showThinking('s', `Planning day-by-day stops for "${selectedIdea.title}"...`);
+- First stop is "origin", last is "destination" (or "destination-overnight")
+- Day 1 includes origin and first overnight stop
+- Each day's total distFromPrev should not exceed ${Math.round(parseFloat(eff)*55)} miles
+- Include ${Math.round(days * 1.5)} to ${days * 3} stops total
+- All stop names must be real, specific places`;
 
   try {
-    let itinerary;
-    if (p.roundTrip) {
-      itinerary = await callGeminiRoundTrip(geminiKey, p.homebase, selectedIdea.destination, {
-        driveHours: p.driveHours,
-        tripDays: p.days,
-        nightsDest: p.nightsDest || 0,
-        interests: p.interests,
-        notes: p.notes,
-        departDate: '',
-      });
-    } else {
-      const prompt = buildSurpriseItineraryPrompt(p, selectedIdea);
-      itinerary = await callGemini(geminiKey, prompt);
-    }
-    hideThinking('s');
-    currentStops = await recalculateTiming(normalizeStops(itinerary.stops, p.homebase), p.driveHours);
-    renderStops('s-stopsList', currentStops);
-    document.getElementById('s-stopsContainer').style.display = 'block';
-    await renderMap(currentStops);
-    renderSummary(itinerary, p.days);
-    showItineraryPanel();
-    setStatus(`Adventure planned — ${itinerary.stops.length} stops, ${p.days} days!`, 'success');
-  } catch(err) {
-    hideThinking('s');
-    setStatus('Error: ' + err.message, 'error');
-    console.error(err);
+    const raw  = await callGemini(prompt, thinkSub);
+    thinkSub('Parsing itinerary...');
+    const data = extractJSON(raw);
+    const stops = normalizeStops(data.stops, origin);
+    if (!stops.length) throw new Error('No stops returned');
+
+    thinkSub('Calculating real drive times...');
+    await applyTiming(stops, drive);
+
+    renderStops('r-stops', stops);
+    document.getElementById('r-results').classList.remove('hidden');
+    showSummary(stops, data);
+
+    thinkSub('Drawing route on map...');
+    await drawRoute(stops);
+
+    setStatus(`✓ ${data.title || 'Trip planned!'}`, 'ok');
+  } catch(e) {
+    setStatus('Error: ' + e.message, 'err');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('r-thinking').style.display = 'none';
   }
-
-  setBusy('s-buildBtn', false);
 }
 
-function buildSurpriseItineraryPrompt(params, idea) {
-  const BUFFER_HRS  = 1.4;
-  const effectiveDriveHrs = (params.driveHours - BUFFER_HRS).toFixed(1);
-  const travelDays  = params.days - (params.nightsDest || 0);
-  const outDays     = params.roundTrip ? Math.floor(travelDays / 2) : travelDays;
-  const returnDays  = params.roundTrip ? Math.ceil(travelDays / 2) : 0;
-  const rtNote = params.roundTrip
-    ? `- ROUND TRIP: ${outDays} outbound driving days to reach ${idea.destination}, ${params.nightsDest||0} night(s) there, ${returnDays} return driving days back to ${params.homebase}. Take different roads back where possible.
-- Final stop = ${params.homebase}`
-    : `- ONE-WAY: ${outDays} driving days to ${idea.destination}, ${params.nightsDest||0} night(s) at destination.`;
+// ── SURPRISE ME ───────────────────────────────────────────────
+let selectedIdea = null;
 
-  const minStops = outDays + returnDays + (params.nightsDest > 0 ? 1 : 0);
-  return `Road trip planner. JSON only, no markdown.
+async function planSurprise() {
+  const home  = document.getElementById('s-home').value.trim();
+  const days  = parseInt(document.getElementById('s-days').value) || 5;
+  const drive = parseInt(document.getElementById('s-drive').value) || 6;
+  const dir   = getDir();
+  const ints  = getChips('s-chips');
+  const notes = document.getElementById('s-notes').value.trim();
 
-TRIP: "${idea.title}" | FROM: ${params.homebase} | TO: ${idea.destination} | ROUTE: ${idea.route_hint} | DAYS: ${params.days} | NET DRIVE/DAY: ${effectiveDriveHrs}h | NIGHTS AT DEST: ${params.nightsDest} | ROUND TRIP: ${params.roundTrip} | INTERESTS: ${params.interests.join(',')||'general'} | NOTES: ${params.notes||'none'}
+  if (!home) { setStatus('Enter your home city', 'err'); return; }
+  if (!mapsReady) { setStatus('Maps not ready yet', 'err'); return; }
 
-STRUCTURE: ${outDays}d driving out${params.nightsDest>0?' / '+params.nightsDest+'n at '+idea.destination:''}${params.roundTrip?' / '+returnDays+'d back to '+params.homebase:''}
-
-RULES: MUST reach ${idea.destination}. ${params.roundTrip?'Final stop = '+params.homebase+'.':(params.nightsDest>0?params.nightsDest+' rest nights at dest.':'')} Overnights in real interesting towns. CRITICAL: sum of distFromPrev for all stops on same day must not exceed ${Math.round(parseFloat(effectiveDriveHrs)*55)} miles (= ${effectiveDriveHrs}h net x 55mph). Include ${minStops}-${minStops*2+2} stops total.
-
-JSON: {"summary":"","totalMiles":0,"totalDriveHours":0,"daysBreakdown":"",
-"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"What to do/see here and why.","stopType":"origin","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
-
-stopType: origin|overnight|destination|destination-overnight|activity|brief
-type: origin(first)|destination(last)|waypoint(rest)`;
-}
-
-async function regenerateSurprise() {
-  if (!lastSurpriseParams) return;
-  document.getElementById('s-ideasContainer').style.display = 'none';
-  document.getElementById('s-stopsContainer').style.display = 'none';
+  const btn = document.getElementById('s-btn');
+  btn.disabled = true;
   selectedIdea = null;
-  document.getElementById('s-buildBtn').disabled = true;
-  await generateSurprise();
-}
+  document.getElementById('s-build-btn').disabled = true;
+  document.getElementById('s-thinking').style.display = 'block';
+  document.getElementById('s-ideas-wrap').classList.add('hidden');
+  document.getElementById('s-results').classList.add('hidden');
+  setStatus('Finding trip ideas...', 'spin');
 
-// ══════════════════════════════════════════════════════════════════
-// ── GEMINI API ────────────────────────────────────────────────────
-// ══════════════════════════════════════════════════════════════════
-// ── ROUND TRIP SPLITTER ───────────────────────────────────────────
-async function callGeminiRoundTrip(apiKey, origin, destination, params) {
-  const { driveHours, tripDays, nightsDest, interests, notes, departDate } = params;
-  const eff = (driveHours - 1.4).toFixed(1);
-  const travelDays = tripDays - nightsDest;
-  const outDays = Math.floor(travelDays / 2);
-  const retDays = Math.ceil(travelDays / 2);
+  const thinkSub = t => { document.getElementById('s-think-sub').textContent = t; setStatus(t, 'spin'); };
 
-  const outPrompt = `Road trip planner. JSON only, no markdown.
-OUTBOUND LEG. FROM: ${origin} TO: ${destination}. DAYS: ${outDays}. NET DRIVE/DAY: ${eff}h. DEPART 08:00 daily. INTERESTS: ${interests.join(',')||'general'}. NOTES: ${notes||'none'}.
-MUST reach ${destination}. Use full ${eff}h/day. Overnights in real towns. Include ${outDays+1} to ${outDays*2+2} stops.
-JSON: {"totalMiles":0,"totalDriveHours":0,"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"What to do/see here and why.","stopType":"origin","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
-stopType: origin|overnight|destination|activity|brief. Last stop type=destination at ${destination}.`;
+  const prompt = `Generate 3 distinct road trip ideas for someone based in "${home}".
+Trip length: ${days} days. Max driving: ${drive} hrs/day.
+${dir !== 'any' ? `Preferred direction: ${dir}` : ''}
+Interests: ${ints.length ? ints.join(', ') : 'general exploration'}.
+${notes ? `Notes: ${notes}` : ''}
 
-  const retPrompt = `Road trip planner. JSON only, no markdown.
-RETURN LEG. FROM: ${destination} BACK TO: ${origin}. DAYS: ${retDays}. NET DRIVE/DAY: ${eff}h. DEPART 08:00 daily. INTERESTS: ${interests.join(',')||'general'}.
-MUST return to ${origin}. Use different roads than outbound. Include ${retDays+1} to ${retDays*2+2} stops.
-JSON: {"totalMiles":0,"totalDriveHours":0,"stops":[{"day":1,"order":1,"type":"origin","name":"","location":"City,ST","address":"","description":"What to do/see here and why.","stopType":"overnight","departTime":"","arrivalTime":"","duration":"","driveFromPrev":"0 min","distFromPrev":"0 miles","highlight":""}]}
-stopType: overnight|activity|brief|destination. Last stop type=destination at ${origin}.`;
-
-  setStatus('Planning outbound leg to ' + destination + '...', 'loading');
-  const outResult = await callGemini(apiKey, outPrompt);
-  setStatus('Planning return leg back to ' + origin + '...', 'loading');
-  const retResult = await callGemini(apiKey, retPrompt);
-
-  const outStops = outResult.stops || [];
-
-  // Inject destination night stops
-  const destStops = [];
-  if (nightsDest > 0) {
-    const lastOut = outStops[outStops.length - 1];
-    for (let n = 1; n <= nightsDest; n++) {
-      destStops.push({
-        day: outDays + n, order: outStops.length + n,
-        type: 'waypoint', stopType: 'destination-overnight',
-        name: lastOut?.name || destination,
-        location: lastOut?.location || destination,
-        address: lastOut?.address || destination,
-        description: 'Day ' + n + ' at ' + destination + '. Enjoy local beaches and attractions.',
-        highlight: 'Explore and relax at destination',
-        duration: 'full day', driveFromPrev: '0 min', distFromPrev: '0 miles',
-        departTime: '—', arrivalTime: '—',
-      });
-    }
+Return ONLY a JSON array (no markdown) with exactly 3 items:
+[
+  {
+    "title": "Catchy trip name",
+    "destination": "Main destination city, State",
+    "tagline": "One exciting sentence about this trip",
+    "highlights": ["Thing 1", "Thing 2", "Thing 3"]
   }
+]`;
 
-  const retStops = (retResult.stops || []).map((s, i) => ({
-    ...s,
-    day: outDays + nightsDest + s.day,
-    order: outStops.length + destStops.length + i + 1,
-  }));
+  try {
+    const raw  = await callGemini(prompt, thinkSub);
+    const data = extractJSON(raw);
+    const ideas = Array.isArray(data) ? data : data.ideas || data.trips || [];
+    if (!ideas.length) throw new Error('No ideas returned');
 
-  const allStops = [...outStops, ...destStops, ...retStops];
-  if (allStops.length > 0) allStops[allStops.length - 1].type = 'destination';
+    // Render idea cards
+    const wrap = document.getElementById('s-ideas');
+    wrap.innerHTML = ideas.map((idea, i) => `
+      <div class="idea-card" onclick="selectIdea(this, ${i})" data-idx="${i}">
+        <div class="idea-title">${idea.title}</div>
+        <div class="idea-dest">${idea.destination}</div>
+        <div class="idea-desc">${idea.tagline}</div>
+        ${idea.highlights ? `<div class="idea-desc" style="margin-top:4px;color:var(--muted)">★ ${idea.highlights.join(' · ')}</div>` : ''}
+      </div>`).join('');
 
-  return {
-    summary: outResult.summary || (origin + ' → ' + destination + ' → ' + origin),
-    totalMiles: (outResult.totalMiles || 0) + (retResult.totalMiles || 0),
-    totalDriveHours: (outResult.totalDriveHours || 0) + (retResult.totalDriveHours || 0),
-    daysBreakdown: outDays + 'd out / ' + nightsDest + 'n at ' + destination + ' / ' + retDays + 'd back',
-    stops: allStops,
-  };
-}
+    window._surpIdeas = ideas;
+    window._surpParams = { home, days, drive, ints, notes };
 
-async function callGemini(apiKey, prompt) {
-  // Try models in order — stops at first success
-  const candidates = [
-    { model: 'gemini-2.5-flash',                  thinking: true  },
-    { model: 'gemini-2.5-flash-preview-04-17',     thinking: true  },
-    { model: 'gemini-2.0-flash-exp',               thinking: false },
-    { model: 'gemini-2.0-flash',                   thinking: false },
-    { model: 'gemini-1.5-flash',                   thinking: false },
-  ];
-
-  let data, lastErr;
-  for (const { model, thinking } of candidates) {
-    setStatus('Connecting to Gemini (' + model + ')...', 'loading');
-    const genConfig = thinking
-      ? { temperature: 0.8, maxOutputTokens: 16000, thinkingConfig: { thinkingBudget: 0 } }
-      : { temperature: 0.8, maxOutputTokens: 16000 };
-    try {
-      const r = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + apiKey,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          referrerPolicy: 'no-referrer',
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: genConfig })
-        }
-      );
-      if (r.ok) {
-        data = await r.json();
-        console.log('Gemini: using', model);
-        break;
-      }
-      const eb = await r.json().catch(() => ({}));
-      lastErr = '[' + model + '] ' + (eb.error?.message || r.status);
-      // 403 = key doesn't have access to this model, skip fast
-      // 404 = model not available in this region/version, skip fast
-      console.warn('Skipping', model, '—', lastErr);
-    } catch(e) {
-      lastErr = '[' + model + '] ' + e.message;
-      console.warn('Skipping', model, '—', lastErr);
-    }
-  }
-
-  if (!data) throw new Error(lastErr || 'All Gemini models failed. Check your API key at aistudio.google.com.');
-
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  return robustParseJSON(text);
-}
-
-// ── ROBUST JSON PARSER ────────────────────────────────────────────
-function robustParseJSON(raw) {
-  // Strip markdown fences
-  let clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-
-  // Extract outermost JSON object
-  const start = clean.indexOf('{');
-  const end   = clean.lastIndexOf('}');
-  if (start !== -1 && end !== -1) clean = clean.slice(start, end + 1);
-
-  // Try straight parse first
-  try { return JSON.parse(clean); } catch(e1) {}
-
-  // Fix unescaped newlines/tabs INSIDE string values only
-  // Walk char by char, tracking whether we're inside a string
-  function fixJSON(str) {
-    let result = '';
-    let inString = false;
-    let i = 0;
-    while (i < str.length) {
-      const ch = str[i];
-      if (ch === '\\' && inString) {
-        // already escaped — keep both chars
-        result += ch + (str[i+1] || '');
-        i += 2;
-        continue;
-      }
-      if (ch === '"') {
-        inString = !inString;
-        result += ch;
-        i++;
-        continue;
-      }
-      if (inString) {
-        if (ch === '\n') { result += '\\n'; i++; continue; }
-        if (ch === '\r') { result += '\\r'; i++; continue; }
-        if (ch === '\t') { result += '\\t'; i++; continue; }
-      }
-      result += ch;
-      i++;
-    }
-    // Also remove trailing commas
-    return result.replace(/,\s*([}\]])/g, '$1');
-  }
-
-  try { return JSON.parse(fixJSON(clean)); } catch(e2) {}
-
-  // Attempt to recover truncated JSON by closing open structures
-  function recoverTruncated(str) {
-    // Close any open string
-    let inString = false, escaped = false;
-    let result = str;
-    for (let i = 0; i < str.length; i++) {
-      const ch = str[i];
-      if (escaped) { escaped = false; continue; }
-      if (ch === '\\') { escaped = true; continue; }
-      if (ch === '"') inString = !inString;
-    }
-    if (inString) result += '"'; // close open string
-
-    // Count unclosed brackets/braces and close them
-    let opens = [];
-    inString = false; escaped = false;
-    for (let i = 0; i < result.length; i++) {
-      const ch = result[i];
-      if (escaped) { escaped = false; continue; }
-      if (ch === '\\') { escaped = true; continue; }
-      if (ch === '"') { inString = !inString; continue; }
-      if (inString) continue;
-      if (ch === '{' || ch === '[') opens.push(ch);
-      if (ch === '}' || ch === ']') opens.pop();
-    }
-    // Close in reverse
-    for (let i = opens.length - 1; i >= 0; i--) {
-      result += opens[i] === '{' ? '}' : ']';
-    }
-    // Remove trailing commas again after recovery
-    result = result.replace(/,\s*([}\]])/g, '$1');
-    return result;
-  }
-
-  try { return JSON.parse(recoverTruncated(fixJSON(clean))); } catch(e3) {}
-
-  console.error('Raw Gemini response:', raw);
-  throw new Error('Could not parse Gemini response. Try again — Gemini occasionally produces malformed JSON.');
-}
-
-// ── RENDER STOPS ──────────────────────────────────────────────────
-
-
-// ── STOP NORMALIZER ───────────────────────────────────────────────
-// Ensures stops always start at day 1 with the correct origin city
-function normalizeStops(stops, originCity) {
-  if (!stops || stops.length === 0) return stops;
-
-  // Fix 1: If first stop isn't day 1, re-number all days from 1
-  const dayOffset = stops[0].day - 1;
-  if (dayOffset !== 0) {
-    stops.forEach(s => s.day = s.day - dayOffset);
-  }
-
-  // Fix 2: If first stop isn't the origin city, prepend it
-  const firstName = (stops[0].name || '').toLowerCase();
-  const originLower = (originCity || '').toLowerCase().split(',')[0].trim();
-  if (originCity && !firstName.includes(originLower) && !originLower.includes(firstName)) {
-    stops.unshift({
-      day: 1, order: 0, type: 'origin', stopType: 'origin',
-      name: originCity, location: originCity, address: originCity,
-      description: 'Your starting point. Depart 08:00.',
-      highlight: 'Start of your adventure',
-      distFromPrev: '0 miles', driveFromPrev: '0 min',
-      departTime: '08:00', arrivalTime: '',
-    });
-    // Re-number orders
-    stops.forEach((s, i) => s.order = i + 1);
-  }
-
-  return stops;
-}
-
-// ── TIMING RECALCULATOR ───────────────────────────────────────────
-// Calculates accurate departure/arrival times from distFromPrev miles
-async function recalculateTiming(stops, maxDriveHours) {
-  const mapsKey    = getKey('maps');
-  const START_MINS = 8 * 60;  // 08:00
-
-  const DWELL = {
-    'origin': 0, 'brief': 30, 'activity': 90,
-    'overnight': 0, 'destination': 0, 'destination-overnight': 0,
-  };
-  const REST_TYPES = new Set(['overnight','destination','destination-overnight']);
-
-  // ── Step 1: Geocode all stops to lat/lng if not already done ──────
-  // (stops should already have addresses from Gemini; Maps geocoder handles them)
-  // We'll use the Distance Matrix API sequentially: each stop → next stop
-  // to get real drive durations.
-
-  const addresses = stops.map(s => s.address || s.location || s.name);
-
-  // Build pairs: [i-1] → [i] for all i > 0
-  // Batch into groups of 10 (API limit per request)
-  const driveMins = new Array(stops.length).fill(0); // index 0 unused
-
-  for (let i = 1; i < stops.length; i++) {
-    const from = addresses[i - 1];
-    const to   = addresses[i];
-    const rawMiles = ((stops[i].distFromPrev || '').match(/([0-9]+(?:[.][0-9]+)?)/) || [])[1];
-
-    // Skip legs with no distance (rest days)
-    if (!rawMiles || parseFloat(rawMiles) === 0) {
-      driveMins[i] = 0;
-      continue;
-    }
-
-    setStatus('Calculating drive time to ' + (stops[i].name || to) + '...', 'loading');
-    try {
-      const mins = await getDistanceMatrixDuration(from, to, mapsKey);
-      driveMins[i] = mins;
-    } catch(e) {
-      // Fallback: estimate from miles at 50mph if API fails
-      driveMins[i] = Math.round((parseFloat(rawMiles) / 50) * 60);
-    }
-  }
-
-  // ── Step 2: Apply per-day capping ─────────────────────────────────
-  const maxDriveMinsDay = (maxDriveHours || 8) * 60;
-  const dayTotal = {};
-  stops.forEach((s, i) => {
-    if (i === 0) return;
-    if (!REST_TYPES.has(s.stopType) && driveMins[i] > 0) {
-      dayTotal[s.day] = (dayTotal[s.day] || 0) + driveMins[i];
-    }
-  });
-  const dayScale = {};
-  Object.keys(dayTotal).forEach(day => {
-    dayScale[day] = dayTotal[day] > maxDriveMinsDay
-      ? maxDriveMinsDay / dayTotal[day] : 1.0;
-  });
-
-  // ── Step 3: Walk stops and assign times ───────────────────────────
-  let clockMins = START_MINS;
-  let lastDay   = -1;
-
-  stops.forEach((stop, i) => {
-    if (stop.day !== lastDay) {
-      lastDay   = stop.day;
-      clockMins = START_MINS;
-    }
-
-    const rawMins  = driveMins[i] || 0;
-    const scale    = dayScale[stop.day] || 1.0;
-    const driveMin = Math.round(rawMins * scale);
-
-    if (i === 0) {
-      stop.arrivalTime   = '';
-      stop.departTime    = '08:00';
-      stop.driveFromPrev = '0 min';
-
-    } else if (rawMins === 0) {
-      stop.arrivalTime = '';
-      stop.departTime  = '';
-
-    } else {
-      const arrivalMins = clockMins + driveMin;
-      stop.arrivalTime  = minsToTime(arrivalMins);
-
-      if (REST_TYPES.has(stop.stopType)) {
-        stop.departTime = '';
-      } else {
-        const dwell      = DWELL[stop.stopType] ?? 60;
-        const departMins = arrivalMins + dwell;
-        stop.departTime  = minsToTime(departMins);
-        clockMins        = departMins;
-      }
-
-      // Pretty drive label from real API minutes
-      const dh = Math.floor(driveMin / 60);
-      const dm = driveMin % 60;
-      stop.driveFromPrev = dh > 0
-        ? dh + 'h' + (dm > 0 ? ' ' + dm + 'm' : '')
-        : dm + ' min';
-    }
-  });
-
-  return stops;
-}
-
-// Call Distance Matrix API for one origin→destination pair
-// Returns drive time in minutes
-function getDistanceMatrixDuration(origin, destination, apiKey) {
-  return new Promise((resolve, reject) => {
-    const svc = new google.maps.DistanceMatrixService();
-    svc.getDistanceMatrix({
-      origins: [origin],
-      destinations: [destination],
-      travelMode: google.maps.TravelMode.DRIVING,
-      unitSystem: google.maps.UnitSystem.IMPERIAL,
-    }, (response, status) => {
-      if (status !== 'OK') return reject(new Error('DistanceMatrix: ' + status));
-      const el = response?.rows?.[0]?.elements?.[0];
-      if (el?.status !== 'OK') return reject(new Error('Element status: ' + el?.status));
-      // duration.value is in seconds
-      resolve(Math.round(el.duration.value / 60));
-    });
-  });
-}
-
-function minsToTime(totalMins) {
-  const h = Math.floor(totalMins / 60) % 24;
-  const m = totalMins % 60;
-  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-}
-
-
-function renderStops(listId, stops) {
-  const list = document.getElementById(listId);
-  list.innerHTML = '';
-
-  // Group by day for day headers
-  let lastDay = 0;
-
-  stops.forEach((stop, i) => {
-    // Insert day header
-    if (stop.day !== lastDay) {
-      lastDay = stop.day;
-      const dayHeader = document.createElement('div');
-      dayHeader.style.cssText = 'font-family:"Bebas Neue",sans-serif;font-size:13px;letter-spacing:3px;color:var(--muted);padding:6px 0 2px;border-top:1px solid var(--border);margin-top:4px';
-      dayHeader.textContent = 'DAY ' + stop.day;
-      if (i === 0) dayHeader.style.borderTop = 'none';
-      list.appendChild(dayHeader);
-    }
-
-    const stopTypeColor = {
-      'origin': 'var(--success)',
-      'destination': 'var(--danger)',
-      'destination-overnight': 'var(--danger)',
-      'overnight': '#60a5fa',
-      'activity': 'var(--accent)',
-      'brief': 'var(--muted)',
-      'waypoint': 'var(--accent)',
-    }[stop.stopType || stop.type] || 'var(--accent)';
-
-    const stopTypeLabel = {
-      'origin': '🏠 START',
-      'destination': '🎯 DESTINATION',
-      'destination-overnight': '🎯 DESTINATION',
-      'overnight': '🌙 OVERNIGHT',
-      'activity': '⭐ ACTIVITY',
-      'brief': '⛽ BRIEF STOP',
-      'waypoint': '📍 STOP',
-    }[stop.stopType || stop.type] || '📍 STOP';
-
-    const card = document.createElement('div');
-    card.className = 'stop-card ' + (stop.type || 'waypoint');
-    card.style.borderLeftColor = stopTypeColor;
-
-    const timingHtml = ((stop.departTime && stop.departTime !== '') || (stop.arrivalTime && stop.arrivalTime !== '')) ? `
-      <div style="display:flex;gap:12px;margin-top:5px;font-family:'DM Mono',monospace;font-size:10px;">
-        ${stop.departTime && stop.departTime !== '—' && stop.departTime !== '' ? `<span style="color:#60a5fa">🕗 DEPART ${stop.departTime}</span>` : ''}
-        ${stop.arrivalTime && stop.arrivalTime !== '—' && stop.arrivalTime !== '' ? `<span style="color:var(--success)">📍 ARRIVE ${stop.arrivalTime}</span>` : ''}
-      </div>` : '';
-
-    card.innerHTML = `
-      <div class="stop-header">
-        <div class="stop-num">${String(i+1).padStart(2,'0')}</div>
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:6px">
-            <div class="stop-type" style="color:${stopTypeColor}">${stopTypeLabel}</div>
-          </div>
-          <div class="stop-name">${stop.name}</div>
-        </div>
-      </div>
-      <div class="stop-meta">${stop.location}</div>
-      ${stop.driveFromPrev && stop.driveFromPrev !== '0 min' ? `<div class="stop-drive">🚗 ${stop.driveFromPrev} · ${stop.distFromPrev}</div>` : ''}
-      ${timingHtml}
-      <div class="stop-meta" style="margin-top:5px">${stop.description}</div>
-      ${stop.highlight ? `<div class="stop-highlight">★ ${stop.highlight}</div>` : ''}
-      ${stop.duration && stop.duration !== '0 min' ? `<div class="stop-duration">⏱ ${stop.duration}</div>` : ''}
-    `;
-    list.appendChild(card);
-  });
-}
-
-// ── RENDER MAP ────────────────────────────────────────────────────
-async function renderMap(stops) {
-  if (!mapsLoaded) return;
-  if (window._markers) window._markers.forEach(m => m.setMap(null));
-  window._markers = [];
-  if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
-
-  const geocoded = await Promise.all(stops.map(stop => new Promise(resolve => {
-    geocoder.geocode({ address: stop.address || stop.location }, (res, status) => {
-      if (status === 'OK') return resolve({ ...stop, latLng: res[0].geometry.location });
-      geocoder.geocode({ address: stop.location }, (r2, s2) => {
-        resolve({ ...stop, latLng: s2 === 'OK' ? r2[0].geometry.location : null });
-      });
-    });
-  })));
-
-  const valid = geocoded.filter(s => s.latLng);
-
-  valid.forEach((stop, i) => {
-    const color = stop.type === 'origin' ? '#6ae8a0' : stop.type === 'destination' ? '#e86a6a' : '#e8d56a';
-    const marker = new google.maps.Marker({
-      position: stop.latLng, map,
-      title: stop.name,
-      label: { text: String(i+1), color: '#0a0a08', fontFamily: 'Bebas Neue, sans-serif', fontSize: '14px' },
-      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 18, fillColor: color, fillOpacity: 1, strokeColor: '#0a0a08', strokeWeight: 2 }
-    });
-
-    const iw = new google.maps.InfoWindow({
-      content: `<div style="background:#111110;color:#e8e8e0;padding:10px;border-radius:6px;font-family:'DM Sans',sans-serif;max-width:220px">
-        <b>${stop.name}</b>
-        <div style="font-size:12px;color:#888880;margin:3px 0">${stop.location}</div>
-        <div style="font-size:12px">${stop.description}</div>
-        ${stop.highlight ? `<div style="font-size:11px;color:#e8d56a;margin-top:5px">★ ${stop.highlight}</div>` : ''}
-      </div>`
-    });
-
-    marker.addListener('click', () => iw.open(map, marker));
-    window._markers.push(marker);
-  });
-
-  if (valid.length >= 2) {
-    const waypoints = valid.slice(1, -1).map(s => ({ location: s.latLng, stopover: true }));
-    directionsService.route({
-      origin: valid[0].latLng,
-      destination: valid[valid.length - 1].latLng,
-      waypoints,
-      travelMode: google.maps.TravelMode.DRIVING,
-      optimizeWaypoints: false,
-    }, (result, status) => {
-      if (status === 'OK') directionsRenderer.setDirections(result);
-    });
-  }
-
-  document.getElementById('mapPlaceholder').classList.add('hidden');
-  const bounds = new google.maps.LatLngBounds();
-  valid.forEach(s => bounds.extend(s.latLng));
-  map.fitBounds(bounds, { padding: 60 });
-}
-
-// ── SUMMARY ───────────────────────────────────────────────────────
-function renderSummary(itinerary, days) {
-  document.getElementById('sumStops').textContent  = itinerary.stops.length;
-  document.getElementById('sumDist').textContent   = (itinerary.totalMiles || '—').toLocaleString();
-  document.getElementById('sumDays').textContent   = days;
-  document.getElementById('sumDrive').textContent  = (itinerary.totalDriveHours || '—') + 'h';
-  
-  // Show breakdown if available
-  if (itinerary.daysBreakdown) {
-    setStatus('✦ ' + itinerary.daysBreakdown, 'success');
+    document.getElementById('s-ideas-wrap').classList.remove('hidden');
+    setStatus('Pick a trip idea!', 'ok');
+  } catch(e) {
+    setStatus('Error: ' + e.message, 'err');
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('s-thinking').style.display = 'none';
   }
 }
 
-// ── RESET ─────────────────────────────────────────────────────────
-function resetTrip() {
-  currentStops = [];
-  const el = document.getElementById('r-stopsList');
-  if (el) el.innerHTML = '';
-  const sc = document.getElementById('r-stopsContainer');
-  if (sc) sc.style.display = 'none';
-  clearMap();
-  document.getElementById('sidebarActions').style.display = 'none';
-  document.getElementById('tripSummary').style.display = 'none';
-  document.getElementById('mapPlaceholder').classList.remove('hidden');
-  setStatus('Reset — ready for a new trip', '');
+function selectIdea(el, idx) {
+  document.querySelectorAll('#s-ideas .idea-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedIdea = window._surpIdeas?.[idx];
+  document.getElementById('s-build-btn').disabled = false;
 }
 
-function resetSurprise() {
-  currentStops = [];
+async function buildTrip() {
+  if (!selectedIdea) return;
+  const p    = window._surpParams || {};
+  const idea = selectedIdea;
+
+  document.getElementById('s-build-btn').disabled = true;
+  document.getElementById('s-thinking').style.display = 'block';
+  document.getElementById('s-results').classList.add('hidden');
+  setStatus('Building your trip...', 'spin');
+
+  const thinkSub = t => { document.getElementById('s-think-sub').textContent = t; setStatus(t, 'spin'); };
+
+  const eff = ((p.drive || 6) * 0.85).toFixed(1);
+  const prompt = `Plan a detailed ${p.days}-day road trip from "${p.home}" to "${idea.destination}".
+Trip theme: "${idea.title}" — ${idea.tagline}
+Max driving: ${p.drive} hours/day. Interests: ${(p.ints||[]).join(', ') || 'general'}.
+${p.notes ? `Notes: ${p.notes}` : ''}
+
+Return ONLY a JSON object (no markdown):
+{
+  "title": "${idea.title}",
+  "totalMiles": 000,
+  "totalDriveHours": 0,
+  "stops": [
+    {
+      "name": "City, State",
+      "stopType": "origin|brief|activity|overnight|destination",
+      "day": 1,
+      "description": "1-2 sentence description",
+      "highlights": "Key thing to do or see",
+      "distFromPrev": "000 miles"
+    }
+  ]
+}
+
+Rules: First stop = origin (${p.home}), last = destination. Each day ≤ ${Math.round(parseFloat(eff)*55)} miles.
+Include ${Math.round((p.days||5) * 1.5)} to ${(p.days||5) * 3} stops total.`;
+
+  try {
+    const raw  = await callGemini(prompt, thinkSub);
+    const data = extractJSON(raw);
+    const stops = normalizeStops(data.stops, p.home);
+    if (!stops.length) throw new Error('No stops returned');
+
+    thinkSub('Calculating drive times...');
+    await applyTiming(stops, p.drive || 6);
+
+    renderStops('s-stops', stops);
+    document.getElementById('s-results').classList.remove('hidden');
+    document.getElementById('s-ideas-wrap').classList.add('hidden');
+    showSummary(stops, data);
+
+    thinkSub('Drawing route...');
+    await drawRoute(stops);
+
+    setStatus(`✓ ${data.title || 'Adventure planned!'}`, 'ok');
+  } catch(e) {
+    setStatus('Error: ' + e.message, 'err');
+    console.error(e);
+  } finally {
+    document.getElementById('s-build-btn').disabled = false;
+    document.getElementById('s-thinking').style.display = 'none';
+  }
+}
+
+// ── RESET ─────────────────────────────────────────────────────
+function resetAll() {
+  if (dirRenderer) dirRenderer.setDirections({ routes: [] });
+  document.getElementById('r-stops').innerHTML = '';
+  document.getElementById('s-stops').innerHTML = '';
+  document.getElementById('s-ideas').innerHTML = '';
+  document.getElementById('r-results').classList.add('hidden');
+  document.getElementById('s-results').classList.add('hidden');
+  document.getElementById('s-ideas-wrap').classList.add('hidden');
+  document.getElementById('stat-bar').style.display = 'none';
+  document.getElementById('sidebar-actions').style.display = 'none';
+  document.getElementById('map-placeholder').classList.remove('gone');
   selectedIdea = null;
-  const sl = document.getElementById('s-stopsList');
-  if (sl) sl.innerHTML = '';
-  const sc = document.getElementById('s-stopsContainer');
-  if (sc) sc.style.display = 'none';
-  document.getElementById('s-ideasContainer').style.display = 'none';
-  const sb = document.getElementById('s-buildBtn');
-  if (sb) sb.disabled = true;
-  clearMap();
-  document.getElementById('sidebarActions').style.display = 'none';
-  document.getElementById('tripSummary').style.display = 'none';
-  document.getElementById('mapPlaceholder').classList.remove('hidden');
-  setStatus('Reset — find a new adventure!', '');
+  setStatus('Reset — ready for a new trip', 'ok');
 }
 
-function clearMap() {
-  
-  document.getElementById('mapPlaceholder').classList.remove('hidden');
-  if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
-  if (window._markers) window._markers.forEach(m => m.setMap(null));
-  currentStops = [];
-}
-
-// ── EXPORT ────────────────────────────────────────────────────────
-function exportItinerary() {
-  if (!currentStops.length) return;
-  const lines = ['WAYPOINT — Road Trip Itinerary', '='.repeat(40)];
-  let lastDay = 0;
-  currentStops.forEach((stop, i) => {
-    if (stop.day !== lastDay) { lines.push('\n── DAY ' + stop.day + ' ' + '─'.repeat(20)); lastDay = stop.day; }
-    lines.push('\n' + (i+1) + '. ' + stop.name + ' (' + stop.location + ')');
-    if (stop.driveFromPrev && stop.driveFromPrev !== '0 min') lines.push('   Drive: ' + stop.driveFromPrev + ' (' + stop.distFromPrev + ')');
-    lines.push('   ' + stop.description);
-    if (stop.highlight) lines.push('   ★ ' + stop.highlight);
-    if (stop.duration) lines.push('   Stay: ' + stop.duration);
+// ── EXPORT ────────────────────────────────────────────────────
+function exportTxt() {
+  const stops = [...document.querySelectorAll('.stop-card')];
+  if (!stops.length) return;
+  const lines = ['WAYPOINT ROAD TRIP ITINERARY', '═'.repeat(40), ''];
+  stops.forEach(el => {
+    lines.push(el.querySelector('.stop-name')?.textContent || '');
+    const sub = el.querySelector('.stop-desc')?.textContent;
+    if (sub) lines.push('  ' + sub);
+    lines.push('');
   });
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'road-trip-itinerary.txt';
+  a.download = 'waypoint-itinerary.txt';
   a.click();
 }
 
-// ── HELPERS ───────────────────────────────────────────────────────
-function getKey(type) {
-  const user = sessionStorage.getItem('wp_user') || 'default';
-  if (type === 'maps')   return localStorage.getItem('wp_maps_' + user) || '';
-  if (type === 'gemini') return localStorage.getItem('wp_gemini_' + user) || '';
-  return '';
-}
+function printPDF() { window.print(); }
 
-function saveKey(type, key) {
-  const user = sessionStorage.getItem('wp_user') || 'default';
-  localStorage.setItem('wp_' + type + '_' + user, key.trim());
-}
-
-function saveGeminiKey(key) { saveKey('gemini', key); }  // backwards compat
-
-function hasGeminiKey() { return !!getKey('gemini'); }
-function hasMapsKey()   { return !!getKey('maps'); }
-
-function setStatus(msg, state) {
-  const t = document.getElementById('statusText');
-  const d = document.getElementById('statusDot');
-  if (t) t.textContent = msg;
-  if (d) d.className = 'sdot ' + (state || '');
-}
-
-function showThinking(mode, msg) {
-  document.getElementById(mode + '-thinkingText').textContent = msg;
-  document.getElementById(mode + '-thinking').classList.add('visible');
-}
-
-function hideThinking(mode) {
-  document.getElementById(mode + '-thinking').classList.remove('visible');
-}
-
-function setBusy(id, busy) {
-  document.getElementById(id).disabled = busy;
-}
-
-// ── DARK MAP STYLE ────────────────────────────────────────────────
-function darkMapStyle() {
-  // Light, clean map style
-  return [
-    {featureType:'all',elementType:'geometry',stylers:[{saturation:-15},{lightness:10}]},
-    {featureType:'road',elementType:'geometry',stylers:[{color:'#ffffff'}]},
-    {featureType:'road',elementType:'geometry.stroke',stylers:[{color:'#e0d8cc'}]},
-    {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#f5e9c8'}]},
-    {featureType:'road.highway',elementType:'geometry.stroke',stylers:[{color:'#dbc97a'}]},
-    {featureType:'water',elementType:'geometry',stylers:[{color:'#aecde0'}]},
-    {featureType:'landscape',elementType:'geometry',stylers:[{color:'#eee8de'}]},
-    {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#d4e8c4'}]},
-    {featureType:'poi',elementType:'labels',stylers:[{visibility:'off'}]},
-    {featureType:'transit',stylers:[{visibility:'off'}]},
-    {featureType:'administrative',elementType:'geometry.stroke',stylers:[{color:'#c4bdb0'}]},
-    {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#666'}]},
-  ];
-}
+// ── INIT ──────────────────────────────────────────────────────
+checkAuth();
 </script>
-  <div class="version-stamp">WAYPOINT v1.6.3</div>
 </body>
 </html>
