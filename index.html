@@ -401,7 +401,7 @@ textarea { resize: none; }
   <div class="topbar-badges">
     <span class="badge">GEMINI</span>
     <span class="badge">GOOGLE MAPS</span>
-    <span class="version">v3.0.0</span>
+    <span class="version">v3.1.0</span>
   </div>
 </div>
 
@@ -604,7 +604,7 @@ textarea { resize: none; }
 <script>
 'use strict';
 // ═══════════════════════════════════════════════════════════════
-// WAYPOINT v3.0.0 — Ground Zero Build
+// WAYPOINT v3.1.0 — Ground Zero Build
 // Bulletproof: referrerPolicy fix, JS-only geocoding,
 //              model fallback chain, robust JSON parsing
 // ═══════════════════════════════════════════════════════════════
@@ -835,16 +835,11 @@ async function drawRoute(stops) {
   if (!mapsReady) return;
   if (stops.length < 2) return;
 
-  // Geocode all stops
-  const locs = [];
-  for (const s of stops) {
-    try {
-      const loc = await geocodePlace(s.name + (s.state ? ', ' + s.state : ''));
-      locs.push({ stop: s, loc });
-    } catch(e) {
-      console.warn('Could not geocode:', s.name);
-    }
-  }
+  // Geocode all stops in parallel
+  const results = await Promise.all(
+    stops.map(s => geocodePlace(s.name).catch(() => null))
+  );
+  const locs = stops.map((s, i) => results[i] ? { stop: s, loc: results[i] } : null).filter(Boolean);
   if (locs.length < 2) return;
 
   const origin      = locs[0].loc;
@@ -967,38 +962,77 @@ const DWELL = { origin:0, brief:30, activity:90, overnight:0, destination:0 };
 const REST  = new Set(['overnight','destination','destination-overnight']);
 
 async function applyTiming(stops, maxDriveHrs) {
-  // Get real drive times between consecutive stops
   const driveMins = new Array(stops.length).fill(0);
 
-  // Geocode for distance matrix
-  const locs = [];
-  for (const s of stops) {
-    try {
-      const loc = await geocodePlace(s.name);
-      locs.push(loc);
-    } catch {
-      locs.push(null);
-    }
-  }
+  // ── STEP 1: Geocode ALL stops in parallel ──────────────────
+  setStatus('Geocoding stops...', 'spin');
+  const locs = await Promise.all(
+    stops.map(s => geocodePlace(s.name).catch(() => null))
+  );
 
+  // ── STEP 2: ONE batched Distance Matrix call ───────────────
+  // Build origins array (stops 0..n-1) and destinations (stops 1..n)
+  // API supports up to 25 origins × 25 destinations
+  const validPairs = [];
   for (let i = 1; i < stops.length; i++) {
-    if (!locs[i-1] || !locs[i]) {
-      // Fallback: estimate from miles
-      const mi = parseFloat((stops[i].distFromPrev || '').match(/[\d.]+/)?.[0] || 0);
-      driveMins[i] = mi > 0 ? Math.round((mi / 55) * 60) : 0;
-      continue;
+    if (locs[i-1] && locs[i]) validPairs.push({ from: i-1, to: i });
+  }
+
+  if (validPairs.length > 0 && dmService) {
+    setStatus('Calculating all drive times...', 'spin');
+    try {
+      // Batch: up to 25 unique locations
+      // For sequential legs we need origins=[0..n-1], destinations=[1..n]
+      // which the API handles fine as separate rows
+      const origins      = validPairs.map(p => locs[p.from]);
+      const destinations = validPairs.map(p => locs[p.to]);
+
+      const result = await new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('Distance Matrix timeout')), 12000);
+        dmService.getDistanceMatrix(
+          {
+            origins,
+            destinations,
+            travelMode: google.maps.TravelMode.DRIVING,
+            unitSystem: google.maps.UnitSystem.IMPERIAL,
+          },
+          (resp, status) => {
+            clearTimeout(t);
+            if (status === 'OK') resolve(resp);
+            else reject(new Error('Distance Matrix: ' + status));
+          }
+        );
+      });
+
+      // Each row i corresponds to validPairs[i], with one destination per row (element [0])
+      validPairs.forEach((pair, idx) => {
+        const el = result?.rows?.[idx]?.elements?.[0];
+        if (el?.status === 'OK') {
+          driveMins[pair.to] = Math.round(el.duration.value / 60);
+        } else {
+          // Fallback to miles estimate
+          const mi = parseFloat((stops[pair.to].distFromPrev || '').match(/[\d.]+/)?.[0] || 0);
+          driveMins[pair.to] = mi > 0 ? Math.round((mi / 55) * 60) : 0;
+        }
+      });
+
+    } catch(e) {
+      console.warn('Distance Matrix batch failed:', e.message, '— using mile estimates');
+      // Fallback all legs to mile estimates
+      for (let i = 1; i < stops.length; i++) {
+        const mi = parseFloat((stops[i].distFromPrev || '').match(/[\d.]+/)?.[0] || 0);
+        driveMins[i] = mi > 0 ? Math.round((mi / 55) * 60) : 0;
+      }
     }
-    setStatus(`Calculating drive time to ${stops[i].name}...`, 'spin');
-    const mins = await getDriveTime(locs[i-1], locs[i]);
-    if (mins !== null) {
-      driveMins[i] = mins;
-    } else {
+  } else {
+    // No geocodes — use mile estimates
+    for (let i = 1; i < stops.length; i++) {
       const mi = parseFloat((stops[i].distFromPrev || '').match(/[\d.]+/)?.[0] || 0);
       driveMins[i] = mi > 0 ? Math.round((mi / 55) * 60) : 0;
     }
   }
 
-  // Per-day scaling
+  // ── STEP 3: Per-day scaling ────────────────────────────────
   const maxMins = (maxDriveHrs || 8) * 60;
   const dayTot = {};
   stops.forEach((s, i) => {
@@ -1010,7 +1044,7 @@ async function applyTiming(stops, maxDriveHrs) {
     dayScale[d] = t > maxMins ? maxMins / t : 1;
   });
 
-  // Assign times
+  // ── STEP 4: Assign arrival/depart times ───────────────────
   let clock = 8 * 60, lastDay = -1;
   stops.forEach((stop, i) => {
     if (stop.day !== lastDay) { clock = 8 * 60; lastDay = stop.day; }
